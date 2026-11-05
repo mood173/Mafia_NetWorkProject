@@ -1,0 +1,5 @@
+rootProject.name = 'mafia-game'
+
+include 'server'
+include 'client'
+include 'common'
