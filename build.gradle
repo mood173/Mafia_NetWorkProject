@@ -14,4 +14,9 @@ subprojects {
             languageVersion = JavaLanguageVersion.of(17)
         }
     }
+
+    // Windows 기본 인코딩(MS949) 대신 UTF-8로 읽기: 한글 주석·문자열 컴파일 오류 방지
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
 }
