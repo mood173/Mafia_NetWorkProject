@@ -5,7 +5,7 @@ import java.util.*;
 public final class PersonalChecks {
     static int checks;
     static void check(boolean ok,String label){checks++;if(!ok)throw new AssertionError(label);}
-    public static void main(String[] args){flow(); System.out.println("PASS week 10 personal checks: "+checks);}
+    public static void main(String[] args){flow(); room(); System.out.println("PASS week 11 personal checks: "+checks);}
 
     static void flow() {
         StreamManager f = new StreamManager();
@@ -16,5 +16,14 @@ public final class PersonalChecks {
         f.accept(Message.of(MessageType.PHASE_CHANGE,"NIGHT","40"));check(f.game()==gameStream.NIGHT,"phase");
         f.accept(Message.of(MessageType.GAME_END,"CITIZEN","A:MAFIA"));check(f.app()==AppStream.End,"result");
         f.disconnected();check(f.app()==AppStream.main,"disconnect");
+    }
+
+    static void room() {
+        StreamManager f=new StreamManager();f.accept(Message.of(MessageType.LOGIN_OK,"A"));
+        f.accept(Message.of(MessageType.ROOM_STATE,"1","room","PUBLIC","A","A:false"));check(f.app()==AppStream.FrontDesk,"room response");
+        f.accept(Message.of(MessageType.ROOM_LEFT,"1"));check(f.app()==AppStream.Lobby,"leave response");
+        MessageCodec codec=new MessageCodec();
+        Message m=Message.of(MessageType.ROOM_STATE,"1","room","PUBLIC","A","A:false");
+        check(codec.decode(codec.encode(m),Direction.SERVER_TO_CLIENT).equals(m),"shared draft protocol");
     }
 }
