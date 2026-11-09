@@ -37,7 +37,7 @@ public final class MainScene implements Scene {
         try {
             connection.connect(host.getText().trim(), Integer.parseInt(port.getText().trim()));
             connection.send(Message.of(MessageType.LOGIN, name.getText().trim()));
-        } catch (IOException | NumberFormatException e) {
+        } catch (IOException | IllegalArgumentException | IllegalStateException e) {
             status.setText("연결 실패: " + e.getMessage());
         }
     }

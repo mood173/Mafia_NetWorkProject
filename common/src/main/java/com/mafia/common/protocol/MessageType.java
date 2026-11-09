@@ -18,6 +18,9 @@ public enum MessageType {
     ROOM_CODE       (-1,   1),   // 입장 코드
     JOIN_ROOM       ( 1,  -1),   // 방 번호
     JOIN_PRIVATE    ( 1,  -1),   // 입장 코드
+    ROOM_STATE      (-1,   5),   // 방번호, 이름, PUBLIC/PRIVATE, 방장, 이름:true,...
+    LEAVE_ROOM      ( 0,  -1),
+    ROOM_LEFT       (-1,   1),
     PLAYER_JOIN     (-1,   1),   // 닉네임
     PLAYER_LEAVE    (-1,   1),   // 닉네임
     READY           ( 1,  -1),   // true 또는 false

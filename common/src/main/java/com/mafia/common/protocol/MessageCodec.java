@@ -1,48 +1,45 @@
 package com.mafia.common.protocol;
 
+import java.util.Arrays;
 import java.util.List;
 
-/**
- * Message ↔ 한 줄 문자열. 형식은 "종류|필드1|필드2|...".
- * 서버는 decode(line, CLIENT_TO_SERVER), 클라이언트는 decode(line, SERVER_TO_CLIENT)로 읽는다.
- */
+/** 10주차 규격을 유지하고 누락 필드를 거절한다. 마지막 필드의 | 보존은 CHAT만 허용. */
 public final class MessageCodec {
+    public static final int MAX_LENGTH = 8192;
 
     public String encode(Message message) {
-        StringBuilder line = new StringBuilder(message.type().name());
-        List<String> fields = message.fields();
-        for (int i = 0; i < fields.size(); i++) {
-            String field = fields.get(i).replace('\r', ' ').replace('\n', ' ');
-            if (i < fields.size() - 1 && field.contains("|")) {
-                throw new IllegalArgumentException("마지막이 아닌 필드에 '|'가 있음: " + field);
-            }
-            line.append('|').append(field);
+        int count = message.fields().size();
+        if (count != message.type().fields(Direction.CLIENT_TO_SERVER)
+                && count != message.type().fields(Direction.SERVER_TO_CLIENT))
+            throw new IllegalArgumentException("필드 수 오류: " + message.type());
+        for (int i=0; i<count; i++) {
+            String f=message.field(i);
+            if (f.indexOf('\n')>=0 || f.indexOf('\r')>=0)
+                throw new IllegalArgumentException("개행 불가");
+            if (f.contains("|") && !(message.type()==MessageType.CHAT && i==count-1))
+                throw new IllegalArgumentException("구분 문자 불가");
         }
-        return line.toString();
+        String line=message.type().name() + (count==0 ? "" : "|" + String.join("|",message.fields()));
+        if(line.length()>MAX_LENGTH) throw new IllegalArgumentException("메시지가 너무 김");
+        return line;
     }
 
-    /** 형식이 틀리면 IllegalArgumentException. 받는 쪽은 잡아서 ERROR로 답한다. */
     public Message decode(String line, Direction direction) {
-        if (line == null || line.isBlank()) {
-            throw new IllegalArgumentException("빈 메시지");
+        if(line==null || line.isBlank() || line.length()>MAX_LENGTH || line.indexOf('\n')>=0 || line.indexOf('\r')>=0)
+            throw new IllegalArgumentException("잘못된 메시지 길이 또는 개행");
+        String[] head=line.split("\\|",2);
+        MessageType type;
+        try { type=MessageType.valueOf(head[0]); }
+        catch(IllegalArgumentException e) { throw new IllegalArgumentException("모르는 메시지 종류"); }
+        int expected=type.fields(direction);
+        if(expected<0) throw new IllegalArgumentException("보낼 수 없는 방향: "+type);
+        if(expected==0) {
+            if(head.length!=1) throw new IllegalArgumentException("불필요한 필드");
+            return new Message(type,List.of());
         }
-        String[] head = line.split("\\|", 2);
-        MessageType type = parseType(head[0].trim());
-        int count = type.fields(direction);
-        if (count < 0) {
-            throw new IllegalArgumentException(type + "은(는) " + direction + " 방향으로 보낼 수 없음");
-        }
-        if (count == 0 || head.length == 1) {
-            return new Message(type, List.of());
-        }
-        return new Message(type, List.of(head[1].split("\\|", count)));
-    }
-
-    private static MessageType parseType(String name) {
-        try {
-            return MessageType.valueOf(name);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("모르는 메시지 종류: " + name);
-        }
+        if(head.length<2) throw new IllegalArgumentException("필드 누락");
+        String[] fields=head[1].split("\\|",type==MessageType.CHAT ? expected : -1);
+        if(fields.length!=expected) throw new IllegalArgumentException("필드 수 오류: "+type);
+        return new Message(type,Arrays.asList(fields));
     }
 }

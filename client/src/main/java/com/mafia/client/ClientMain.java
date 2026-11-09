@@ -1,40 +1,24 @@
 package com.mafia.client;
+import com.mafia.client.net.*;
+import com.mafia.client.stream.*;
+import com.mafia.client.scene.*;
+import com.mafia.client.game.*;
+import com.mafia.client.demo.*;
+import com.mafia.common.protocol.MessageCodec;
+import javax.swing.*;
 
-import com.mafia.client.net.Connection;
-import com.mafia.client.net.OfflineConnection;
-import com.mafia.client.scene.MainScene;
-import com.mafia.client.scene.PlaceholderScene;
-import com.mafia.client.stream.GameStream;
-import com.mafia.client.stream.SceneId;
-import com.mafia.client.stream.SceneRegistry;
-
-import javax.swing.JFrame;
-import javax.swing.SwingUtilities;
-
-/**
- * 클라이언트 조립 지점 (Composition Root).
- * 규칙: new 는 여기서만. 씬과 부품은 생성자로 필요한 것을 받는다.
- */
+/** 조립 지점. 실제 시연 TCP가 기본이며 --offline만 이전 LOGIN 가짜 연결을 쓴다. */
 public final class ClientMain {
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(ClientMain::assemble);
-    }
-
-    private static void assemble() {
-        Connection connection = new OfflineConnection();
-        // Connection connection = new SocketConnection(new MessageCodec());   // 고경탁: 완성되면 이 줄로 교체
-
-        GameStream stream = new GameStream(new JFrame("마피넷"));
-        SceneRegistry scenes = stream.scenes();
-        scenes.register(SceneId.MAIN,   new MainScene(connection));
-        scenes.register(SceneId.LOBBY,  new PlaceholderScene(stream, "로비"));        // → LobbyScene (강민준)
-        scenes.register(SceneId.ROOM,   new PlaceholderScene(stream, "대기방"));      // → RoomScene (강민준)
-        scenes.register(SceneId.GAME,   new PlaceholderScene(stream, "게임"));        // → GameScene + ChatPanel·AbilityPanel
-        scenes.register(SceneId.RESULT, new PlaceholderScene(stream, "결과"));        // → ResultScene (강민준)
-
-        WiringCheck.orFail(scenes);
-        connection.setListener(stream);
-        stream.start(SceneId.MAIN);
+    public static void main(String[] args){SwingUtilities.invokeLater(()->assemble(args));}
+    private static void assemble(String[] args){
+        Connection connection=args.length>0&&args[0].equals("--offline")?new OfflineConnection():new DemoSocketConnection(new MessageCodec());
+        GameStream stream=new GameStream(new JFrame("마피넷 AI 보험본 - 별도 연동 시연"));
+        var scenes=stream.scenes();var state=stream.state();
+        scenes.register(SceneId.MAIN,new MainScene(connection));
+        scenes.register(SceneId.LOBBY,new LobbyScene(connection));
+        scenes.register(SceneId.ROOM,new RoomScene(state,connection));
+        scenes.register(SceneId.GAME,new GameScene(state,connection,new PhaseBanner(state),new VotePanel(state,connection),new DemoAbilityPanel(state,connection),new DemoChatPanel(connection)));
+        scenes.register(SceneId.RESULT,new ResultScene(state,connection));
+        WiringCheck.orFail(scenes);connection.setListener(stream);stream.start(SceneId.MAIN);
     }
 }
