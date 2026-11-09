@@ -1,0 +1,4 @@
+plugins { id 'application' }
+dependencies { implementation project(':common'); implementation project(':server'); implementation project(':client') }
+application { mainClass = 'PersonalChecks' }
+tasks.named('check') { dependsOn tasks.named('run') }
