@@ -25,6 +25,6 @@ public final class GameSessionFactory {
         Collections.shuffle(shuffled,random);
         Map<String,RoleAbility> assigned=new LinkedHashMap<>();
         for(int i=0;i<players.size();i++) assigned.put(players.get(i),shuffled.get(i));
-        return new GameSession(channel,assigned,characters.get(),timer,new PhaseTable(config),new VoteCounter(),new WinChecker());
+        return new GameSession(channel,assigned,characters.get(),timer,new PhaseTable(config));
     }
 }

@@ -1,6 +1,6 @@
 # 민준 개인 담당 AI 보험 브랜치
 
-현재 체크포인트: 11주차 — 메인·로비·대기실 UI
+현재 체크포인트: 12주차 — 게임 세션·직업 배정·밤 단계
 
 ## 보관과 공개 범위
 
@@ -19,6 +19,7 @@
 
 - [10주차 설계](docs/personal/10주차_설계.md) · [구현](docs/personal/10주차_구현.md): 앱 흐름과 서버 응답 기반 화면 전환
 - [11주차 설계](docs/personal/11주차_설계.md) · [구현](docs/personal/11주차_구현.md): 메인·로비·대기실 UI
+- [12주차 설계](docs/personal/12주차_설계.md) · [구현](docs/personal/12주차_구현.md): 게임 세션·직업 배정·밤 단계
 
 ## 팀원과 조립하는 방법
 
@@ -30,4 +31,4 @@
 
 ## 검증과 실행
 
-`gradlew.bat build`가 이 단계의 개인 검사를 실행한다. 15주차는 `gradlew.bat :verification:uiCheck`로 Swing 흐름도 검사한다. 현재 개인 검사 수는 10개다. main은 기존 OfflineConnection 기반 미리보기이며 실제 게임 서비스를 띄우지 않는다.
+`gradlew.bat build`가 이 단계의 개인 검사를 실행한다. 15주차는 `gradlew.bat :verification:uiCheck`로 Swing 흐름도 검사한다. 현재 개인 검사 수는 20개다. main은 기존 OfflineConnection 기반 미리보기이며 실제 게임 서비스를 띄우지 않는다.
