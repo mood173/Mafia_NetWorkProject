@@ -1,49 +1,36 @@
 package com.mafia.server;
 
 import com.mafia.common.protocol.MessageCodec;
+import com.mafia.common.protocol.MessageType;
 import com.mafia.server.engine.GameConfig;
 import com.mafia.server.engine.MessageRouter;
 import com.mafia.server.engine.WiringCheck;
+import com.mafia.server.net.GameServer;
+import com.mafia.server.net.LoginHandler;
+import com.mafia.server.net.SessionRegistry;
 
-/**
- * 서버 조립 지점 (Composition Root).
- * 규칙: new 는 여기와 팩토리 안에서만 쓴다. 다른 클래스는 생성자로 받기만 한다. static 싱글턴 금지.
- */
+/** Login and transport composition only. Room/game services are supplied by their owners. */
 public final class ServerMain {
+    public static void main(String[] args) throws Exception {
+        GameConfig config=GameConfig.defaults();
+        String host=args.length>0?args[0]:"0.0.0.0";
+        int port=args.length>1?Integer.parseInt(args[1]):config.port();
+        SessionRegistry sessions=new SessionRegistry();
+        MessageRouter router=new MessageRouter();
+        router.register(MessageType.LOGIN,new LoginHandler(sessions));
 
-    public static void main(String[] args) {
-        GameConfig config = GameConfig.defaults();
-        MessageCodec codec = new MessageCodec();
-        MessageRouter router = new MessageRouter();
-
-        // ── 접속 (고경탁) ─────────────────────────────
-        // SessionRegistry sessions = new SessionRegistry();
-        // router.register(MessageType.LOGIN, new LoginHandler(sessions));
-
-        // ── 로비·방 (강민준) ──────────────────────────
-        // RoomRegistry rooms = new RoomRegistry();
-        // RoomFactory roomFactory = new RoomFactory(games);
-        // router.register(MessageType.ROOM_LIST,    new RoomListHandler(rooms));
-        // router.register(MessageType.CREATE_ROOM,  new CreateRoomHandler(rooms, roomFactory));
-        // router.register(MessageType.JOIN_ROOM,    new JoinRoomHandler(rooms));
-        // router.register(MessageType.JOIN_PRIVATE, new JoinRoomHandler(rooms));
-        // router.register(MessageType.READY,        new ReadyHandler(rooms));
-
-        // ── 캐릭터 (고경탁) ───────────────────────────
-        // RoleFactory roleFactory = new RoleFactory(config.roleCounts(), List.of(...));
-        // CharacterService characters = new DefaultCharacterService(new DefaultNightResolver());
-
-        // ── 판 진행 (강민준) ──────────────────────────
-        // GameSessionFactory games = channel -> new GameSession(channel, roleFactory.create(),
-        //         characters, new WinChecker(), new VoteCounter(), new PhaseTimer(), config);
-        // GameMessageHandler toGame = new GameMessageHandler(rooms);
-        // for (MessageType t : MessageType.gameCommands()) router.register(t, toGame);
-
-        // ── 채팅 (고경탁) ─────────────────────────────
-        // router.register(MessageType.CHAT, new ChatHandler(rooms));
-
-        WiringCheck.report(router, config);      // 다 채우면 WiringCheck.orFail 로 바꾼다
-        // new GameServer(config.port(), codec, router, sessions).start();   // 고경탁
-        System.out.println("[ServerMain] 조립 완료. GameServer 연결 전 (포트 " + config.port() + ")");
+        // The full-game check stays in report mode until the other services are integrated.
+        WiringCheck.report(router,config);
+        try(GameServer server=new GameServer(host,port,new MessageCodec(),router,sessions,session->{})) {
+            Thread shutdown=new Thread(server::close,"mafia-shutdown");
+            Runtime.getRuntime().addShutdownHook(shutdown);
+            try {
+                System.out.println("마피넷 로그인·네트워크 서버: "+host+":"+server.port());
+                System.out.println("방·채팅·게임 서비스는 연결되지 않았습니다.");
+                server.start();
+            } finally {
+                Runtime.getRuntime().removeShutdownHook(shutdown);
+            }
+        }
     }
 }

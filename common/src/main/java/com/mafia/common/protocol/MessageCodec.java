@@ -7,6 +7,12 @@ import java.util.List;
 public final class MessageCodec {
     public static final int MAX_LENGTH = 8192;
 
+    public String encode(Message message, Direction direction) {
+        if(message.fields().size()!=message.type().fields(direction))
+            throw new IllegalArgumentException("방향 또는 필드 수 오류: "+message.type());
+        return encode(message);
+    }
+
     public String encode(Message message) {
         int count = message.fields().size();
         if (count != message.type().fields(Direction.CLIENT_TO_SERVER)
