@@ -64,6 +64,8 @@ public final class RoomService {
         Room room = registry.byCode(code.trim().toUpperCase(Locale.ROOT))
                 .orElseThrow(() -> new IllegalArgumentException("입장 코드가 올바르지 않습니다"));
         enter(from, room);
+        // 코드로 들어온 사람은 이미 코드를 안다. 화면에 표시하고 테스트 봇도 이 코드로 넣을 수 있게 돌려준다.
+        from.send(Message.of(MessageType.ROOM_CODE, room.code()));
     }
 
     public synchronized void leave(Session from) {

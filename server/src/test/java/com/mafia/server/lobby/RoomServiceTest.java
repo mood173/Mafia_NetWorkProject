@@ -94,7 +94,9 @@ final class RoomServiceTest {
 
         rooms.joinPrivate(b, code.toLowerCase());
         assertEquals("a:false,b:false", b.last(MessageType.ROOM_STATE).field(4));
-        assertTrue(b.all(MessageType.ROOM_CODE).isEmpty(), "코드는 방장에게만 보낸다");
+        // 코드로 들어온 사람은 이미 코드를 안다. 받아 두면 그 사람도 봇을 코드로 넣을 수 있다.
+        assertEquals(code, b.last(MessageType.ROOM_CODE).field(0), "코드로 입장한 사람에게도 코드를 보낸다");
+        assertEquals(1, a.all(MessageType.ROOM_CODE).size(), "방장에게 다시 보내지는 않는다");
     }
 
     @Test

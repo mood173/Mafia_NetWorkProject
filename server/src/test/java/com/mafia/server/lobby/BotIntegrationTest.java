@@ -123,6 +123,20 @@ final class BotIntegrationTest {
     }
 
     @Test
+    void memberWhoJoinedByCodeCanFillPrivateRoomWithBots() throws Exception {
+        LobbyNetworkTest.Client host = player("host"), member = player("member");
+        host.send(MessageType.CREATE_ROOM, "비밀방", "PRIVATE");
+        String code = host.await(MessageType.ROOM_CODE, m -> true).field(0);
+        member.send(MessageType.JOIN_PRIVATE, code);
+        String memberCode = member.await(MessageType.ROOM_CODE, m -> true).field(0);
+        assertEquals(code, memberCode);
+
+        // 방장이 아닌 사람의 화면이 아는 코드로 봇을 채운다 (버튼과 같은 경로)
+        opened.addAll(RoomBotFiller.fill("127.0.0.1", server.port(), 1, memberCode, List.of("host", "member")));
+        host.await(MessageType.ROOM_STATE, BotIntegrationTest::sixWithReadyBots);
+    }
+
+    @Test
     void socketConnectionReportsConnectedServerAddress() throws Exception {
         LobbyNetworkTest.Client a = player("userA");
         assertEquals(server.port(), a.connection.remoteAddress().getPort());
