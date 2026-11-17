@@ -9,9 +9,17 @@ Java 17 이상. 이 브랜치의 추가 구현은 닉네임 로그인·실제 So
 ```
 로그인 화면에 localhost / 5000 / 서로 다른 닉네임을 입력한다.
 LOGIN_OK를 받으면 MinJun의 기존 로비 화면으로 이동한다.
-현재 ServerMain은 LOGIN만 등록한다. 로비의 자동 ROOM_LIST 요청과 방·채팅·게임 요청은
-기존 라우터의 ERROR 응답을 받는다. 이는 해당 서비스를 아직 연결하지 않은 상태이며
-방 생성·게임 시작까지 구현됐다는 뜻이 아니다. 시작 시 WiringCheck는 미연결 항목을 보고한다.
+ServerMain은 LOGIN과 로비·대기방 6종(ROOM_LIST, CREATE_ROOM, JOIN_ROOM, JOIN_PRIVATE,
+LEAVE_ROOM, READY)을 등록한다. 6명 전원이 준비하면 GameSession이 시작되어 GAME_START와
+개인 ROLE을 보낸다. 직업은 정식 구현 전까지 demo의 DemoRole/DemoCharacterService를 쓴다.
+CHAT과 게임 명령(MAFIA_ATTACK, POLICE_CHECK, DOCTOR_HEAL, VOTE)은 아직 연결하지 않아
+ERROR 응답을 받으며, 시작 시 WiringCheck가 이 미연결 항목을 보고한다.
+
+테스트 봇(게임 기능이 아닌 테스트 도구)은 공개방 번호를 지정해 실제 TCP로 접속한다.
+```powershell
+.\gradlew.bat :client:runBots --args="127.0.0.1 5000 1"     # 1번 방에 봇 4개 (1-1 ~ 1-4)
+```
+봇은 로그인 → 입장 → 자동 준비를 하며, 없는 방·가득 찬 방·중복 이름이면 서버 거절 후 종료한다.
 
 다른 PC에서 연결하려면 서버 인수를 `0.0.0.0 5000`으로 바꾸고 클라이언트에 서버 LAN 주소를 입력한다.
 서버 방화벽에서 해당 포트 접근 허용이 필요하다. 다른 PC 간 통신은 별도 확인 대상이다.

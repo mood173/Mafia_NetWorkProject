@@ -10,6 +10,14 @@ application {
     mainClass = 'com.mafia.client.ClientMain'
 }
 
+// 테스트 봇: gradlew :client:runBots --args="127.0.0.1 5000 <방번호> [봇 수]"
+tasks.register('runBots', JavaExec) {
+    group = 'application'
+    description = '지정한 공개방에 테스트 봇(방번호-n)을 접속시킨다'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.mafia.client.bot.BotRunner'
+}
+
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
