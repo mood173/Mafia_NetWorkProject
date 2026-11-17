@@ -53,7 +53,9 @@ final class BotGameTest {
             a.send(MessageType.READY, "true");
 
             a.await(MessageType.GAME_START, m -> true);
+            a.await(MessageType.SYSTEM_CHAT, m -> m.field(0).equals("[SYSTEM]: 밤이 찾아왔습니다."));
             a.await(MessageType.NIGHT_RESULT, m -> true);
+            a.await(MessageType.SYSTEM_CHAT, m -> m.field(0).equals("[SYSTEM]: 아침이 밝았습니다."));
             Message vote = a.await(MessageType.VOTE_RESULT, m -> true);
             assertFalse(vote.field(1).isEmpty(), "봇이 투표해서 득표가 있어야 함");
 

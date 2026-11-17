@@ -13,7 +13,8 @@ public final class DemoChatPanel extends JPanel implements com.mafia.client.ui.C
     private final JButton send=new JButton("채팅 보내기");
     public DemoChatPanel(Connection connection){
         setLayout(new BorderLayout());log.setEditable(false);add(new JScrollPane(log));JPanel row=new JPanel();row.add(input);row.add(send);add(row,BorderLayout.SOUTH);
-        send.addActionListener(e->{if(!input.getText().isBlank()){connection.send(Message.of(MessageType.CHAT,input.getText()));input.setText("");}});
+        java.awt.event.ActionListener submit=e->{if(!input.getText().isBlank()){connection.send(Message.of(MessageType.CHAT,input.getText()));input.setText("");}};
+        send.addActionListener(submit);input.addActionListener(submit); // 입력창에서 Enter를 눌러도 전송
     }
     public void accept(Message m){if(m.type()==MessageType.CHAT)log.append(m.field(0)+": "+m.field(1)+"\n");}
     public void reset(){log.setText("");}
