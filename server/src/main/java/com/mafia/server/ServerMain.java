@@ -7,6 +7,7 @@ import com.mafia.server.demo.DemoRole;
 import com.mafia.server.engine.GameConfig;
 import com.mafia.server.engine.MessageRouter;
 import com.mafia.server.engine.WiringCheck;
+import com.mafia.server.game.GameMessageHandler;
 import com.mafia.server.game.GameSessionFactory;
 import com.mafia.server.game.ScheduledPhaseTimer;
 import com.mafia.server.lobby.LobbyHandlers;
@@ -27,6 +28,9 @@ public final class ServerMain {
         MessageRouter router = new MessageRouter();
         router.register(MessageType.LOGIN, new LoginHandler(sessions));
         LobbyHandlers.register(router, rooms);
+        // 밤 능력 3종과 투표는 그 사람이 속한 방의 GameSession으로 넘긴다 (단계·생존·직업 검사는 판이 한다).
+        GameMessageHandler game = new GameMessageHandler(rooms::gameOf);
+        for (MessageType command : MessageType.gameCommands()) router.register(command, game);
         return router;
     }
 
@@ -42,8 +46,8 @@ public final class ServerMain {
             SessionRegistry sessions = new SessionRegistry();
             MessageRouter router = router(sessions, rooms);
 
-            // 채팅·게임 명령 핸들러가 연결될 때까지 보고 모드로 둔다.
-            WiringCheck.report(router, config);
+            // 클라이언트가 보내는 메시지가 하나라도 처리되지 않으면 시작하지 않는다.
+            WiringCheck.orFail(router, config);
             try (GameServer server = new GameServer(host, port, new MessageCodec(), router, sessions, rooms::disconnected)) {
                 Thread shutdown = new Thread(server::close, "mafia-shutdown");
                 Runtime.getRuntime().addShutdownHook(shutdown);

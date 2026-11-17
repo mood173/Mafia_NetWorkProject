@@ -180,5 +180,34 @@ final class RoomServiceTest {
 
         router.dispatch(a, Message.of(MessageType.CREATE_ROOM, "연습방", "PUBLIC"));
         assertEquals("a", a.last(MessageType.ROOM_STATE).field(3));
+
+        router.dispatch(a, Message.of(MessageType.CHAT, "안녕"));
+        assertEquals(List.of("a", "안녕"), a.last(MessageType.CHAT).fields(), "CHAT도 로비 핸들러로 등록");
+    }
+
+    @Test
+    void waitingRoomChatReachesOnlyThatRoom() {
+        FakeSession a = new FakeSession("a"), b = new FakeSession("b"), other = new FakeSession("c");
+        rooms.create(a, "1번방", "PUBLIC");
+        rooms.join(b, "1");
+        rooms.create(other, "2번방", "PUBLIC");
+
+        rooms.chat(a, "안녕|하세요");
+        assertEquals(List.of("a", "안녕|하세요"), b.last(MessageType.CHAT).fields());
+        assertEquals(List.of("a", "안녕|하세요"), a.last(MessageType.CHAT).fields());
+        assertTrue(other.all(MessageType.CHAT).isEmpty(), "다른 방에는 전달하지 않는다");
+    }
+
+    @Test
+    void chatIsRejectedWhenBlankTooLongOutsideRoomOrAtNight() {
+        FakeSession outsider = new FakeSession("x");
+        assertThrows(IllegalArgumentException.class, () -> rooms.chat(outsider, "안녕"), "방 밖");
+
+        List<FakeSession> players = fullPublicRoom();
+        assertThrows(IllegalArgumentException.class, () -> rooms.chat(players.get(0), " "));
+        assertThrows(IllegalArgumentException.class, () -> rooms.chat(players.get(0), "가".repeat(501)));
+
+        players.forEach(p -> rooms.ready(p, "true"));
+        assertThrows(IllegalArgumentException.class, () -> rooms.chat(players.get(0), "밤에 말하기"), "밤 채팅 불가");
     }
 }

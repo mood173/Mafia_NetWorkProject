@@ -13,7 +13,10 @@ public final class SocketConnection implements Connection {
     private TcpChannel channel;
     private Socket pending;
     private long generation;
+    private InetSocketAddress remote;
     public SocketConnection(MessageCodec codec) { this(codec,Runnable::run); }
+    /** 연결된 서버 주소. 연결 전이거나 끊겼으면 null. 테스트 봇이 같은 서버에 접속할 때 쓴다. */
+    public synchronized InetSocketAddress remoteAddress() { return channel!=null && channel.isOpen() ? remote : null; }
     public SocketConnection(MessageCodec codec, Consumer<Runnable> callbacks) { this.codec=codec; this.callbacks=callbacks; }
     public synchronized void setListener(MessageListener listener) { this.listener=listener; }
     public void connect(String host,int port) throws IOException {
@@ -31,6 +34,7 @@ public final class SocketConnection implements Connection {
                 channel=new TcpChannel(socket,codec,Direction.SERVER_TO_CLIENT,
                     m->deliver(id,()->listener.onMessage(m)), error->close(),
                     ()->deliver(id,()->listener.onDisconnected()));
+                remote=(InetSocketAddress)socket.getRemoteSocketAddress();
                 pending=null; channel.start();
             }
         } catch(IOException | RuntimeException e) {

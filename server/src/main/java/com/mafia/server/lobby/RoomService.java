@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
  */
 public final class RoomService {
     private static final int MAX_TITLE_LENGTH = 24;
+    private static final int MAX_CHAT_LENGTH = 500;
 
     private final GameConfig config;
     private final GameSessionFactory games;
@@ -74,8 +75,21 @@ public final class RoomService {
         if (from.name() != null) exit(from);
     }
 
+    /**
+     * 방 채팅. 대기방과 게임 종료 뒤에는 누구나, 진행 중에는 GameSession 규칙
+     * (생존자, 낮 토론·투표 단계)을 따른다. 같은 방에만 방송한다.
+     */
+    public synchronized void chat(Session from, String text) {
+        Room room = roomOf(from);
+        if (text.isBlank() || text.length() > MAX_CHAT_LENGTH)
+            throw new IllegalArgumentException("채팅은 1~" + MAX_CHAT_LENGTH + "자입니다");
+        if (room.inProgress() && !room.game().canChat(from.name()))
+            throw new IllegalArgumentException("지금은 채팅할 수 없습니다 (생존자만 낮 토론·투표 중 가능)");
+        room.broadcast(Message.of(MessageType.CHAT, from.name(), text));
+    }
+
     public synchronized void ready(Session from, String value) {
-        Room room = registry.of(from.name()).orElseThrow(() -> new IllegalArgumentException("방에 먼저 입장하세요"));
+        Room room = roomOf(from);
         if (room.game() != null) throw new IllegalArgumentException("이미 게임을 시작한 방입니다. 로비에서 새 방을 만드세요");
         if (!value.equals("true") && !value.equals("false")) throw new IllegalArgumentException("준비 값은 true 또는 false입니다");
         room.setReady(from.name(), Boolean.parseBoolean(value));
@@ -90,6 +104,10 @@ public final class RoomService {
     /** 이 참가자가 속한 방의 판. 없으면 null. 게임 명령 핸들러가 쓴다. */
     public synchronized GameEventHandler gameOf(String player) {
         return registry.of(player).map(Room::game).orElse(null);
+    }
+
+    private Room roomOf(Session player) {
+        return registry.of(player.name()).orElseThrow(() -> new IllegalArgumentException("방에 먼저 입장하세요"));
     }
 
     private void requireOutsideRoom(Session player) {

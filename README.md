@@ -12,14 +12,17 @@ LOGIN_OK를 받으면 MinJun의 기존 로비 화면으로 이동한다.
 ServerMain은 LOGIN과 로비·대기방 6종(ROOM_LIST, CREATE_ROOM, JOIN_ROOM, JOIN_PRIVATE,
 LEAVE_ROOM, READY)을 등록한다. 6명 전원이 준비하면 GameSession이 시작되어 GAME_START와
 개인 ROLE을 보낸다. 직업은 정식 구현 전까지 demo의 DemoRole/DemoCharacterService를 쓴다.
-CHAT과 게임 명령(MAFIA_ATTACK, POLICE_CHECK, DOCTOR_HEAL, VOTE)은 아직 연결하지 않아
-ERROR 응답을 받으며, 시작 시 WiringCheck가 이 미연결 항목을 보고한다.
+CHAT은 같은 방에만 방송한다(대기방·게임 종료 후는 누구나, 진행 중에는 생존자만 낮 토론·투표 단계).
+게임 명령(MAFIA_ATTACK, POLICE_CHECK, DOCTOR_HEAL, VOTE)은 그 사람이 속한 방의 GameSession으로 넘긴다.
+클라이언트가 보내는 메시지 전부에 핸들러가 있어야 하므로 시작 시 WiringCheck.orFail로 검사한다.
 
-테스트 봇(게임 기능이 아닌 테스트 도구)은 공개방 번호를 지정해 실제 TCP로 접속한다.
-```powershell
-.\gradlew.bat :client:runBots --args="127.0.0.1 5000 1"     # 1번 방에 봇 4개 (1-1 ~ 1-4)
-```
-봇은 로그인 → 입장 → 자동 준비를 하며, 없는 방·가득 찬 방·중복 이름이면 서버 거절 후 종료한다.
+테스트 봇(게임 기능이 아닌 테스트 도구)은 실제 TCP로 접속하며 이름은 `방번호-n`이다.
+- 대기방의 **테스트 봇 추가** 버튼: 빈자리만큼 봇을 채운다(누른 클라이언트 안에서 실행).
+- 명령줄: `.\gradlew.bat :client:runBots --args="127.0.0.1 5000 1"` (1번 방에 봇 4개)
+
+봇은 로그인 → 입장 → 자동 준비를 하고, 게임 중에는 밤에 직업 능력(마피아·경찰은 자신 제외,
+의사는 자신 포함 생존자)을, 투표 단계에는 자신을 뺀 생존자에게 무작위로 보낸다.
+없는 방·가득 찬 방·중복 이름이면 서버 거절 후 종료한다.
 
 다른 PC에서 연결하려면 서버 인수를 `0.0.0.0 5000`으로 바꾸고 클라이언트에 서버 LAN 주소를 입력한다.
 서버 방화벽에서 해당 포트 접근 허용이 필요하다. 다른 PC 간 통신은 별도 확인 대상이다.
