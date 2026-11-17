@@ -34,6 +34,8 @@ public final class GameSession implements GameEventHandler {
     private long phaseRevision;
     private long phaseDeadlineNanos;
     private boolean started;
+    private boolean submittingNightAction;
+    private long deferredNightCompletion = -1;
 
     public GameSession(RoomChannel channel, Map<String, RoleAbility> roles,
                        CharacterService characters, PhaseTimer timer,
@@ -87,8 +89,28 @@ public final class GameSession implements GameEventHandler {
             return;
         }
         // 판은 단계·생존을 검사한다. 직업/대상 규칙은 캐릭터가 판단한다.
-        SubmitResult result = characters.submit(actor, new NightAction(action, message.field(0)));
+        // 마지막 제출이면 캐릭터가 submit 안에서 바로 밤 마감을 요청하므로,
+        // 수락 안내가 밤 결과보다 먼저 가도록 제출하는 동안에는 마감을 미뤘다가 안내 뒤에 실행한다.
+        SubmitResult result;
+        submittingNightAction = true;
+        try {
+            result = characters.submit(actor, new NightAction(action, message.field(0)));
+        } finally {
+            submittingNightAction = false;
+        }
         if (!result.accepted()) reject(actor, result.reason());
+        else notifyActor(actor, message.field(0) + "에게 능력을 사용했습니다.");
+        if (deferredNightCompletion >= 0) {
+            long revision = deferredNightCompletion;
+            deferredNightCompletion = -1;
+            completePhase(revision, CompletionReason.ALL_NIGHT_ACTIONS_SUBMITTED);
+        }
+    }
+
+    /** 캐릭터의 "전원 제출" 콜백. 제출 처리 중이면 안내를 보낸 뒤로 미룬다. */
+    private synchronized void requestNightCompletion(long revision) {
+        if (submittingNightAction) deferredNightCompletion = revision;
+        else completePhase(revision, CompletionReason.ALL_NIGHT_ACTIONS_SUBMITTED);
     }
 
     private void submitVote(String actor, String target) {
@@ -101,6 +123,7 @@ public final class GameSession implements GameEventHandler {
             return;
         }
         votes.put(actor, target);
+        notifyActor(actor, target.isEmpty() ? "기권하셨습니다." : target + "님을 투표하셨습니다.");
         if (hasEveryoneVoted()) completePhase(phaseRevision, CompletionReason.ALL_VOTES_CAST);
     }
 
@@ -182,8 +205,7 @@ public final class GameSession implements GameEventHandler {
                     () -> completePhase(enteredRevision, CompletionReason.DEADLINE));
         }
         if (next == Phase.NIGHT) {
-            characters.beginNight(Set.copyOf(alive), roles,
-                    () -> completePhase(enteredRevision, CompletionReason.ALL_NIGHT_ACTIONS_SUBMITTED));
+            characters.beginNight(Set.copyOf(alive), roles, () -> requestNightCompletion(enteredRevision));
         }
     }
 
@@ -206,6 +228,11 @@ public final class GameSession implements GameEventHandler {
 
     private void reject(String name, String reason) {
         channel.send(name, Message.of(MessageType.ERROR, reason));
+    }
+
+    /** 행동을 받아들였다는 개인 안내. 본인에게만 보낸다. */
+    private void notifyActor(String name, String text) {
+        channel.send(name, Message.of(MessageType.SYSTEM_CHAT, "[SYSTEM]: " + text));
     }
 
     private void cancelPhaseTimeout() {
