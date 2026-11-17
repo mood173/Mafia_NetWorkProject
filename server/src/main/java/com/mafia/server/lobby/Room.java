@@ -79,18 +79,6 @@ public final class Room implements RoomChannel {
     @Override
     public void broadcast(Message message) {
         for (Session member : members) member.send(message);
-        Message notice = phaseNotice(message);
-        if (notice != null) for (Session member : members) member.send(notice);
-    }
-
-    /** 밤 시작(첫 밤 포함)과 아침(밤 → 낮 결과)에 방 전체로 보내는 시스템 안내. 그 외 단계는 null. */
-    private static Message phaseNotice(Message message) {
-        if (message.type() != MessageType.PHASE_CHANGE) return null;
-        return switch (message.field(0)) {
-            case "NIGHT" -> Message.of(MessageType.SYSTEM_CHAT, "[SYSTEM]: 밤이 찾아왔습니다.");
-            case "DAY_RESULT" -> Message.of(MessageType.SYSTEM_CHAT, "[SYSTEM]: 아침이 밝았습니다.");
-            default -> null;
-        };
     }
 
     @Override

@@ -65,7 +65,7 @@ final class LobbyNetworkTest {
     void serverHandlesEveryClientMessageType() {
         GameConfig config = GameConfig.defaults();
         RoomService rooms = new RoomService(config, new GameSessionFactory(config, DemoRole.catalog(),
-                DemoCharacterService::new, RoomServiceTest.FROZEN, new Random()), new Random());
+                DemoCharacterService::new, RoomServiceTest.FROZEN, new Random()), new RoomRegistry(new Random()));
         assertEquals(List.of(), com.mafia.server.engine.WiringCheck.problems(
                 ServerMain.router(new SessionRegistry(), rooms), config), "C→S 메시지 전부 핸들러 등록");
     }
@@ -75,7 +75,7 @@ final class LobbyNetworkTest {
         GameConfig config = GameConfig.defaults();
         SessionRegistry sessions = new SessionRegistry();
         RoomService rooms = new RoomService(config, new GameSessionFactory(config, DemoRole.catalog(),
-                DemoCharacterService::new, RoomServiceTest.FROZEN, new Random()), new Random());
+                DemoCharacterService::new, RoomServiceTest.FROZEN, new Random()), new RoomRegistry(new Random()));
         ExecutorService accept = Executors.newSingleThreadExecutor();
         List<Client> clients = new ArrayList<>();
 

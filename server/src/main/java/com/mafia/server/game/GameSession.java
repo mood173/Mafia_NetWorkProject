@@ -199,6 +199,8 @@ public final class GameSession implements GameEventHandler {
         if (next == Phase.VOTE) votes.clear();
         channel.broadcast(Message.of(MessageType.PHASE_CHANGE, next.name(), Integer.toString(seconds)));
         broadcastState();
+        // 단계 안내는 단계를 바꾸는 이곳에서만 보낸다. 밤이 즉시 끝나는 경우에도 순서가 맞도록 타이머·밤 시작보다 먼저.
+        announce(next);
 
         if (next != Phase.GAME_END && next != Phase.WAITING) {
             phaseTimeout = timer.schedule(seconds,
@@ -228,6 +230,15 @@ public final class GameSession implements GameEventHandler {
 
     private void reject(String name, String reason) {
         channel.send(name, Message.of(MessageType.ERROR, reason));
+    }
+
+    /** 밤 시작(첫 밤 포함)과 아침(밤 → 낮 결과)에 방 전체로 보내는 시스템 안내. */
+    private void announce(Phase next) {
+        switch (next) {
+            case NIGHT -> channel.broadcast(Message.of(MessageType.SYSTEM_CHAT, "[SYSTEM]: 밤이 찾아왔습니다."));
+            case DAY_RESULT -> channel.broadcast(Message.of(MessageType.SYSTEM_CHAT, "[SYSTEM]: 아침이 밝았습니다."));
+            default -> { }
+        }
     }
 
     /** 행동을 받아들였다는 개인 안내. 본인에게만 보낸다. */

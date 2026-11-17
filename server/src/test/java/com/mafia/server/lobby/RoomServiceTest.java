@@ -46,7 +46,7 @@ final class RoomServiceTest {
     private final GameConfig config = GameConfig.defaults();
     private final RoomService rooms = new RoomService(config,
             new GameSessionFactory(config, DemoRole.catalog(), DemoCharacterService::new, FROZEN, new Random(1)),
-            new Random(1));
+            new RoomRegistry(new Random(1)));
 
     private List<FakeSession> fullPublicRoom() {
         List<FakeSession> players = new ArrayList<>();

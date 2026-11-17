@@ -2,8 +2,11 @@ package com.mafia.server.lobby;
 
 import java.util.*;
 
-/** 방 목록과 "참가자 → 현재 방" 색인. 스레드 안전하지 않으며 RoomService 락 안에서만 쓴다. */
-final class RoomRegistry {
+/**
+ * 방 목록과 "참가자 → 현재 방" 색인. 스레드 안전하지 않으며 RoomService 락 안에서만 쓴다.
+ * 조립 지점(ServerMain)에서 만들어 RoomService 생성자로 넘긴다. 방(Room)은 여기서 만든다.
+ */
+public final class RoomRegistry {
     private static final String CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int CODE_LENGTH = 6;
 
@@ -12,7 +15,8 @@ final class RoomRegistry {
     private final Random random;
     private int nextId = 1;
 
-    RoomRegistry(Random random) { this.random = random; }
+    /** random: 비공개방 입장 코드 생성용. 검사에서는 씨앗을 고정해 넣는다. */
+    public RoomRegistry(Random random) { this.random = random; }
 
     Room create(String title, boolean privateRoom) {
         Room room = new Room(nextId++, title, privateRoom, privateRoom ? uniqueCode() : "");

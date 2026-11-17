@@ -9,7 +9,6 @@ import com.mafia.server.game.GameSessionFactory;
 import com.mafia.server.net.Session;
 
 import java.util.Locale;
-import java.util.Random;
 import java.util.stream.Collectors;
 
 /**
@@ -28,10 +27,11 @@ public final class RoomService {
     private final GameSessionFactory games;
     private final RoomRegistry registry;
 
-    public RoomService(GameConfig config, GameSessionFactory games, Random random) {
+    /** 필요한 것은 전부 밖(조립 지점)에서 받는다. */
+    public RoomService(GameConfig config, GameSessionFactory games, RoomRegistry registry) {
         this.config = config;
         this.games = games;
-        this.registry = new RoomRegistry(random);
+        this.registry = registry;
     }
 
     public synchronized void roomList(Session from) {

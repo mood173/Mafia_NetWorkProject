@@ -11,6 +11,7 @@ import com.mafia.server.game.GameMessageHandler;
 import com.mafia.server.game.GameSessionFactory;
 import com.mafia.server.game.ScheduledPhaseTimer;
 import com.mafia.server.lobby.LobbyHandlers;
+import com.mafia.server.lobby.RoomRegistry;
 import com.mafia.server.lobby.RoomService;
 import com.mafia.server.net.GameServer;
 import com.mafia.server.net.LoginHandler;
@@ -42,7 +43,7 @@ public final class ServerMain {
         try {
             GameSessionFactory games = new GameSessionFactory(config, DemoRole.catalog(),
                     DemoCharacterService::new, new ScheduledPhaseTimer(scheduler), new Random());
-            RoomService rooms = new RoomService(config, games, new Random());
+            RoomService rooms = new RoomService(config, games, new RoomRegistry(new Random()));
             SessionRegistry sessions = new SessionRegistry();
             MessageRouter router = router(sessions, rooms);
 

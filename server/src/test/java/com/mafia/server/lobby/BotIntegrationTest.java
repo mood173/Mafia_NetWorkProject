@@ -38,7 +38,7 @@ final class BotIntegrationTest {
         GameConfig config = GameConfig.defaults();
         SessionRegistry sessions = new SessionRegistry();
         RoomService rooms = new RoomService(config, new GameSessionFactory(config, DemoRole.catalog(),
-                DemoCharacterService::new, RoomServiceTest.FROZEN, new Random()), new Random());
+                DemoCharacterService::new, RoomServiceTest.FROZEN, new Random()), new RoomRegistry(new Random()));
         server = new GameServer("127.0.0.1", 0, new MessageCodec(),
                 ServerMain.router(sessions, rooms), sessions, rooms::disconnected);
         accept.submit(() -> { try { server.start(); } catch (IOException e) { throw new UncheckedIOException(e); } });

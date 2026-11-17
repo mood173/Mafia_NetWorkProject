@@ -24,8 +24,11 @@ final class GameSessionConfirmTest {
         public List<String> players() { return List.copyOf(inbox.keySet()); }
         public void broadcast(Message m) { inbox.values().forEach(list -> list.add(m)); }
         public void send(String name, Message m) { inbox.get(name).add(m); }
+        /** 개인 [SYSTEM] 안내만. 방 전체 단계 안내(밤·아침)는 GameSessionAnnouncementTest가 따로 본다. */
         List<String> system(String name) {
-            return inbox.get(name).stream().filter(m -> m.type() == MessageType.SYSTEM_CHAT).map(m -> m.field(0)).toList();
+            Set<String> phaseNotices = Set.of("[SYSTEM]: 밤이 찾아왔습니다.", "[SYSTEM]: 아침이 밝았습니다.");
+            return inbox.get(name).stream().filter(m -> m.type() == MessageType.SYSTEM_CHAT)
+                    .map(m -> m.field(0)).filter(text -> !phaseNotices.contains(text)).toList();
         }
         int indexOf(String name, MessageType type) {
             List<Message> list = inbox.get(name);

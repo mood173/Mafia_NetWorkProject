@@ -35,7 +35,7 @@ final class BotGameTest {
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         SessionRegistry sessions = new SessionRegistry();
         RoomService rooms = new RoomService(config, new GameSessionFactory(config, DemoRole.catalog(),
-                DemoCharacterService::new, new ScheduledPhaseTimer(scheduler), new Random()), new Random());
+                DemoCharacterService::new, new ScheduledPhaseTimer(scheduler), new Random()), new RoomRegistry(new Random()));
         ExecutorService accept = Executors.newSingleThreadExecutor();
         List<AutoCloseable> opened = new ArrayList<>();
 
