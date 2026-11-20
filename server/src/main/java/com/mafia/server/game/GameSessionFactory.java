@@ -25,6 +25,6 @@ public final class GameSessionFactory {
         Collections.shuffle(shuffled,random);
         Map<String,RoleAbility> assigned=new LinkedHashMap<>();
         for(int i=0;i<players.size();i++) assigned.put(players.get(i),shuffled.get(i));
-        return new GameSession(channel,assigned,characters.get(),timer,new PhaseTable(config));
-    }
+        return new GameSession(channel,assigned,characters.get(),timer,new PhaseTable(config),new VoteCounter(),new WinChecker());    }
+    //RoomChannel channel, Map<String, RoleAbility> roles, CharacterService characters, PhaseTimer timer,PhaseTable phaseRules, VoteCounter voteCounter, WinChecker winChecker -> 페이지 테이블 위후로 투표 기능과 투표대상에 대한 기능 결합에서 문제
 }

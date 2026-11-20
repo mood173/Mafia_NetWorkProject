@@ -61,8 +61,7 @@ public final class PersonalChecks {
         Map<String,RoleAbility> roles=new LinkedHashMap<>();RoleName[] kinds={RoleName.MAFIA,RoleName.DOCTOR,RoleName.POLICE,RoleName.CITIZEN,RoleName.CITIZEN,RoleName.CITIZEN};
         for(int i=0;i<6;i++)roles.put("ABCDEF".substring(i,i+1),new StubRole(kinds[i]));
         Channel channel=new Channel();Clock clock=new Clock();FakeCharacters character=new FakeCharacters();
-        return new Fixture(new GameSession(channel,roles,character,clock,new PhaseTable(GameConfig.defaults())),channel,clock);
-    }
+        return new Fixture(new GameSession(channel,roles,character,clock,new PhaseTable(GameConfig.defaults()),new VoteCounter(),new WinChecker()),channel,clock); }
     static void finishNight(Fixture f){
         f.game.onPlayerMessage("A",Message.of(MessageType.MAFIA_ATTACK,"D"));
         f.game.onPlayerMessage("B",Message.of(MessageType.DOCTOR_HEAL,"B"));
