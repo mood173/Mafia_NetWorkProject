@@ -14,6 +14,7 @@ import com.mafia.server.lobby.LobbyHandlers;
 import com.mafia.server.lobby.RoomRegistry;
 import com.mafia.server.lobby.RoomService;
 import com.mafia.server.net.GameServer;
+import com.mafia.server.net.LanAddresses;
 import com.mafia.server.net.LoginHandler;
 import com.mafia.server.net.SessionRegistry;
 
@@ -21,7 +22,10 @@ import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-/** 서버 조립 지점: 로그인·로비·대기방·게임. 직업은 character.role, 밤 처리는 character.night의 정식 구현을 쓴다. */
+/**
+ * 서버 조립 지점: 로그인·로비·대기방·게임. 직업은 character.role, 밤 처리는 character.night의 정식 구현을 쓴다.
+ * 실행 인자는 ServerArgs: [주소] [포트] [--demo].
+ */
 public final class ServerMain {
 
     /** 접속 후 처리할 메시지 등록. 테스트도 같은 조립을 쓴다. */
@@ -36,9 +40,17 @@ public final class ServerMain {
     }
 
     public static void main(String[] args) throws Exception {
-        GameConfig config = GameConfig.defaults();
-        String host = args.length > 0 ? args[0] : "0.0.0.0";
-        int port = args.length > 1 ? Integer.parseInt(args[1]) : config.port();
+        ServerArgs options;
+        try {
+            options = ServerArgs.parse(args);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            System.exit(2);
+            return;
+        }
+        GameConfig config = options.config();
+        String host = options.host();
+        int port = options.port();
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         try {
             GameSessionFactory games = new GameSessionFactory(config, RoleCatalog.standard(),
@@ -54,6 +66,13 @@ public final class ServerMain {
                 Runtime.getRuntime().addShutdownHook(shutdown);
                 try {
                     System.out.println("마피넷 서버: " + host + ":" + server.port());
+                    if (options.demo())
+                        System.out.printf("시연 모드: 밤 %d초, 낮 결과 %d초, 토론 %d초, 투표 %d초%n", config.nightSeconds(),
+                                config.dayResultSeconds(), config.talkSeconds(), config.voteSeconds());
+                    // 모든 네트워크 카드로 열었으면 다른 PC가 "서버 주소" 칸에 넣을 주소를 알려 준다.
+                    if (host.equals("0.0.0.0"))
+                        LanAddresses.guide(LanAddresses.ipv4(), server.port())
+                                .forEach(address -> System.out.println("  다른 PC 접속 주소: " + address));
                     server.start();
                 } finally {
                     Runtime.getRuntime().removeShutdownHook(shutdown);
