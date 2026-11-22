@@ -175,7 +175,11 @@ public final class GameSession implements GameEventHandler {
         result.findings().forEach((officer, finding) -> channel.send(officer,
                 Message.of(MessageType.POLICE_RESULT, finding.target(), Boolean.toString(finding.mafia()))));
         channel.broadcast(Message.of(MessageType.NIGHT_RESULT, String.join(",", result.deaths())));
-        if (!finishGameIfWon()) transitionTo(Phase.DAY_RESULT);
+        if (finishGameIfWon()) return;
+        transitionTo(Phase.DAY_RESULT);
+        // "아침이 밝았습니다" 뒤에 방 전체로 알린다. 누구를 살렸는지는 밝히지 않는다.
+        if (result.savedByDoctor())
+            channel.broadcast(Message.of(MessageType.SYSTEM_CHAT, "[SYSTEM]: 의사가 시민을 살렸습니다!"));
     }
 
     private void finishVoting() {

@@ -74,6 +74,57 @@ final class BotGameTest {
         }
     }
 
+    @Test
+    void botsReadyAgainAfterTheGameEndsSoTheSameRoomCanStartOver() throws Exception {
+        // 밤을 길게 두어 마피아가 나가기 전에 판이 움직이지 않게 한다.
+        GameConfig config = new GameConfig(0, 6, 30, 0, 0, 30, GameConfig.defaults().roleCounts());
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        SessionRegistry sessions = new SessionRegistry();
+        RoomService rooms = new RoomService(config, new GameSessionFactory(config, RoleCatalog.standard(),
+                DefaultCharacterService::new, new ScheduledPhaseTimer(scheduler), new Random()), new RoomRegistry(new Random()));
+        ExecutorService accept = Executors.newSingleThreadExecutor();
+        List<AutoCloseable> opened = new ArrayList<>();
+
+        try (GameServer server = new GameServer("127.0.0.1", 0, new MessageCodec(),
+                ServerMain.router(sessions, rooms), sessions, rooms::disconnected)) {
+            accept.submit(() -> { try { server.start(); } catch (IOException e) { throw new UncheckedIOException(e); } });
+            LobbyNetworkTest.Client a = new LobbyNetworkTest.Client("userA", server.port());
+            opened.add(a);
+            a.send(MessageType.CREATE_ROOM, "다시하기", "PUBLIC");
+            a.awaitState("userA:false");
+            List<BotClient> bots = RoomBotFiller.fill("127.0.0.1", server.port(), 1, "", List.of("userA"));
+            opened.addAll(bots);
+            a.await(MessageType.ROOM_STATE, m -> m.field(4).split(",").length == 6 && count(m.field(4), ":true") == 5);
+            a.send(MessageType.READY, "true");
+
+            // 마피아가 나가면 시민 승리로 판이 바로 끝난다.
+            boolean iAmMafia = a.await(MessageType.ROLE, m -> true).field(0).equals("MAFIA");
+            int readyBots;
+            if (iAmMafia) {
+                a.send(MessageType.LEAVE_ROOM);
+                a.await(MessageType.ROOM_LEFT, m -> true);
+                a.send(MessageType.JOIN_ROOM, "1"); // 끝난 방에 다시 들어갈 수 있다
+                readyBots = 5;
+            } else {
+                for (BotClient bot : bots) assertTrue(bot.awaitRole(5000), bot.name());
+                bots.stream().filter(b -> b.role().equals("MAFIA")).findFirst().orElseThrow().close();
+                a.await(MessageType.GAME_END, m -> m.field(0).equals("CITIZEN"));
+                readyBots = 4;
+            }
+            Message waiting = a.await(MessageType.ROOM_STATE,
+                    m -> m.field(4).contains("userA:false") && count(m.field(4), ":true") == readyBots);
+            assertEquals(readyBots + 1, waiting.field(4).split(",").length, waiting.field(4));
+        } finally {
+            for (AutoCloseable c : opened) c.close();
+            accept.shutdownNow();
+            scheduler.shutdownNow();
+        }
+    }
+
+    private static int count(String text, String part) {
+        return text.split(java.util.regex.Pattern.quote(part), -1).length - 1;
+    }
+
     private static Message awaitAny(LobbyNetworkTest.Client c, java.util.function.Predicate<Message> condition)
             throws InterruptedException {
         long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);

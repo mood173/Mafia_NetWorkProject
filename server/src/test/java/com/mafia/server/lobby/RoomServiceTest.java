@@ -212,4 +212,55 @@ final class RoomServiceTest {
         players.forEach(p -> rooms.ready(p, "true"));
         assertThrows(IllegalArgumentException.class, () -> rooms.chat(players.get(0), "밤에 말하기"), "밤 채팅 불가");
     }
+
+    /** 6명 전원 준비로 시작한 뒤 마피아가 나가 시민 승리로 끝난 방. 남은 5명을 돌려준다. */
+    private List<FakeSession> finishedRoom() {
+        List<FakeSession> players = fullPublicRoom();
+        players.forEach(p -> rooms.ready(p, "true"));
+        FakeSession mafia = players.stream()
+                .filter(p -> p.last(MessageType.ROLE).field(0).equals("MAFIA")).findFirst().orElseThrow();
+        rooms.leave(mafia);
+        List<FakeSession> left = new ArrayList<>(players);
+        left.remove(mafia);
+        assertFalse(left.get(0).all(MessageType.GAME_END).isEmpty(), "마피아가 나가 판이 끝났다");
+        left.forEach(FakeSession::clear);
+        return left;
+    }
+
+    @Test
+    void readyAfterGameEndResetsTheRoomToWaitingWithEveryoneNotReady() {
+        List<FakeSession> left = finishedRoom();
+
+        rooms.ready(left.get(0), "true");
+        String entries = left.get(1).last(MessageType.ROOM_STATE).field(4);
+        assertTrue(entries.startsWith(left.get(0).name + ":true"), entries);
+        for (FakeSession p : left.subList(1, left.size()))
+            assertTrue(entries.contains(p.name + ":false"), p.name + "는 준비 해제 상태로 돌아간다: " + entries);
+        assertNull(rooms.gameOf(left.get(0).name), "끝난 판은 방에서 치운다");
+    }
+
+    @Test
+    void finishedRoomCanBeJoinedAndStartsANewGameWhenSixAreReadyAgain() {
+        List<FakeSession> left = finishedRoom();
+        FakeSession viewer = new FakeSession("v");
+        rooms.roomList(viewer);
+        assertEquals("1,연습방,5,false", viewer.last(MessageType.ROOM_LIST).field(0));
+
+        FakeSession newcomer = new FakeSession("new");
+        rooms.join(newcomer, "1");
+        assertFalse(newcomer.last(MessageType.ROOM_STATE).field(4).contains(":true"), "입장하면서 준비 상태가 초기화된다");
+
+        left.forEach(p -> rooms.ready(p, "true"));
+        assertTrue(newcomer.all(MessageType.GAME_START).isEmpty(), "새 사람이 준비하기 전에는 시작하지 않는다");
+        rooms.ready(newcomer, "true");
+        for (FakeSession p : left) assertEquals(1, p.all(MessageType.GAME_START).size(), p.name + "는 새 판을 받는다");
+        assertNotNull(rooms.gameOf("new"));
+    }
+
+    @Test
+    void chatAfterGameEndStillWorksBeforeReset() {
+        List<FakeSession> left = finishedRoom();
+        rooms.chat(left.get(0), "수고했어요");
+        assertEquals(List.of(left.get(0).name, "수고했어요"), left.get(1).last(MessageType.CHAT).fields());
+    }
 }

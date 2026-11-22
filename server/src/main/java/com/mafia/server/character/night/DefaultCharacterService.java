@@ -14,7 +14,7 @@ import java.util.*;
  * 규칙 (제안서 5장, 팀 합의):
  * - 능력은 밤마다 한 번 확정이다. 받아들여진 뒤 다시 내면 거절한다 (화면도 사용 후 잠근다).
  * - 거절된 시도는 한 번에 포함되지 않는다.
- * - 공격 대상과 보호 대상이 같으면 아무도 죽지 않는다. 조사 결과는 경찰 본인에게만 간다.
+ * - 공격 대상과 보호 대상이 같으면 아무도 죽지 않고, 결과에 '의사가 막음'을 표시한다. 조사 결과는 경찰 본인에게만 간다.
  * - 살아 있는 능력자가 모두 내면 판에 한 번 알린다.
  */
 public final class DefaultCharacterService implements CharacterService {
@@ -66,8 +66,9 @@ public final class DefaultCharacterService implements CharacterService {
                         roles.get(action.target()).team() == Team.MAFIA));
             }
         }
-        List<String> deaths = attacked != null && !protectedTargets.contains(attacked) ? List.of(attacked) : List.of();
-        return new NightResult(deaths, findings);
+        boolean saved = attacked != null && protectedTargets.contains(attacked);
+        List<String> deaths = attacked != null && !saved ? List.of(attacked) : List.of();
+        return new NightResult(deaths, findings, saved);
     }
 
     @Override

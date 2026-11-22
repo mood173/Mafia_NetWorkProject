@@ -69,6 +69,32 @@ final class GameSessionRealRolesTest {
     }
 
     @Test
+    void doctorSaveIsAnnouncedToEveryoneAfterMorningWithoutNamingTheTarget() {
+        game.onPlayerMessage("maf", Message.of(MessageType.MAFIA_ATTACK, "c1"));
+        game.onPlayerMessage("doc", Message.of(MessageType.DOCTOR_HEAL, "c1"));
+        timer.fire();
+        for (String name : names) {
+            List<String> notices = channel.inbox.get(name).stream().filter(m -> m.type() == MessageType.SYSTEM_CHAT)
+                    .map(m -> m.field(0)).toList();
+            int morning = notices.indexOf("[SYSTEM]: 아침이 밝았습니다.");
+            int saved = notices.indexOf(SAVED);
+            assertTrue(morning >= 0 && saved > morning, name + ": 아침 안내 뒤에 의사 보호 안내 " + notices);
+        }
+    }
+
+    @Test
+    void noSaveNoticeWhenTheAttackKillsOrNoOneIsAttacked() {
+        game.onPlayerMessage("maf", Message.of(MessageType.MAFIA_ATTACK, "c1"));
+        game.onPlayerMessage("doc", Message.of(MessageType.DOCTOR_HEAL, "c2"));
+        timer.fire();                       // 첫 밤: c1 사망
+        for (int i = 0; i < 4; i++) timer.fire(); // 낮 결과 → 토론 → 투표(전원 기권) → 둘째 밤 → 아무도 안 냄
+        assertEquals(0, channel.inbox.get("c3").stream()
+                .filter(m -> m.type() == MessageType.SYSTEM_CHAT && m.field(0).equals(SAVED)).count());
+    }
+
+    private static final String SAVED = "[SYSTEM]: 의사가 시민을 살렸습니다!";
+
+    @Test
     void unprotectedTargetDiesWhenTheNightTimesOut() {
         game.onPlayerMessage("maf", Message.of(MessageType.MAFIA_ATTACK, "c1"));
         game.onPlayerMessage("doc", Message.of(MessageType.DOCTOR_HEAL, "c2"));

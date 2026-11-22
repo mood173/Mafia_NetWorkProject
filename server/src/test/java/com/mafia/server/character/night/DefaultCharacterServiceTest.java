@@ -36,7 +36,22 @@ final class DefaultCharacterServiceTest {
     void healOnSameTargetCancelsAttack() {
         submit("maf", ActionType.ATTACK, "c1");
         submit("doc", ActionType.HEAL, "c1");
-        assertEquals(List.of(), service.endNight().deaths());
+        NightResult result = service.endNight();
+        assertEquals(List.of(), result.deaths());
+        assertTrue(result.savedByDoctor(), "의사가 공격을 막았다");
+    }
+
+    @Test
+    void healWithoutMatchingAttackIsNotASave() {
+        submit("maf", ActionType.ATTACK, "c1");
+        submit("doc", ActionType.HEAL, "c2");
+        assertFalse(service.endNight().savedByDoctor());
+    }
+
+    @Test
+    void healWithoutAnyAttackIsNotASave() {
+        submit("doc", ActionType.HEAL, "c2");
+        assertFalse(service.endNight().savedByDoctor());
     }
 
     @Test
