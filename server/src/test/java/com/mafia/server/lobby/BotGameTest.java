@@ -7,8 +7,8 @@ import com.mafia.common.protocol.Message;
 import com.mafia.common.protocol.MessageCodec;
 import com.mafia.common.protocol.MessageType;
 import com.mafia.server.ServerMain;
-import com.mafia.server.demo.DemoCharacterService;
-import com.mafia.server.demo.DemoRole;
+import com.mafia.server.character.night.DefaultCharacterService;
+import com.mafia.server.character.role.RoleCatalog;
 import com.mafia.server.engine.GameConfig;
 import com.mafia.server.game.GameSessionFactory;
 import com.mafia.server.game.ScheduledPhaseTimer;
@@ -34,8 +34,8 @@ final class BotGameTest {
         GameConfig config = new GameConfig(0, 6, 2, 0, 0, 2, GameConfig.defaults().roleCounts());
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         SessionRegistry sessions = new SessionRegistry();
-        RoomService rooms = new RoomService(config, new GameSessionFactory(config, DemoRole.catalog(),
-                DemoCharacterService::new, new ScheduledPhaseTimer(scheduler), new Random()), new RoomRegistry(new Random()));
+        RoomService rooms = new RoomService(config, new GameSessionFactory(config, RoleCatalog.standard(),
+                DefaultCharacterService::new, new ScheduledPhaseTimer(scheduler), new Random()), new RoomRegistry(new Random()));
         ExecutorService accept = Executors.newSingleThreadExecutor();
         List<AutoCloseable> opened = new ArrayList<>();
 
