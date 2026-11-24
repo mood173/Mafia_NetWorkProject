@@ -34,7 +34,7 @@ public final class GameSession implements GameEventHandler {
     private long phaseRevision;
     private long phaseDeadlineNanos;
     private boolean started;
-    private boolean submittingNightAction;
+    private boolean deferringNightCompletion;
     private long deferredNightCompletion = -1;
 
     public GameSession(RoomChannel channel, Map<String, RoleAbility> roles,
@@ -92,24 +92,28 @@ public final class GameSession implements GameEventHandler {
         // 마지막 제출이면 캐릭터가 submit 안에서 바로 밤 마감을 요청하므로,
         // 수락 안내가 밤 결과보다 먼저 가도록 제출하는 동안에는 마감을 미뤘다가 안내 뒤에 실행한다.
         SubmitResult result;
-        submittingNightAction = true;
+        deferringNightCompletion = true;
         try {
             result = characters.submit(actor, new NightAction(action, message.field(0)));
         } finally {
-            submittingNightAction = false;
+            deferringNightCompletion = false;
         }
         if (!result.accepted()) reject(actor, result.reason());
         else notifyActor(actor, message.field(0) + "에게 능력을 사용했습니다.");
-        if (deferredNightCompletion >= 0) {
-            long revision = deferredNightCompletion;
-            deferredNightCompletion = -1;
-            completePhase(revision, CompletionReason.ALL_NIGHT_ACTIONS_SUBMITTED);
-        }
+        runDeferredNightCompletion();
     }
 
-    /** 캐릭터의 "전원 제출" 콜백. 제출 처리 중이면 안내를 보낸 뒤로 미룬다. */
+    /** 미뤄 둔 밤 마감이 있으면 지금 실행한다. 그 사이 판이 끝났으면 completePhase가 무시한다. */
+    private void runDeferredNightCompletion() {
+        if (deferredNightCompletion < 0) return;
+        long revision = deferredNightCompletion;
+        deferredNightCompletion = -1;
+        completePhase(revision, CompletionReason.ALL_NIGHT_ACTIONS_SUBMITTED);
+    }
+
+    /** 캐릭터의 "전원 제출" 콜백. 제출·이탈 처리 중이면 안내·승패 확인 뒤로 미룬다. */
     private synchronized void requestNightCompletion(long revision) {
-        if (submittingNightAction) deferredNightCompletion = revision;
+        if (deferringNightCompletion) deferredNightCompletion = revision;
         else completePhase(revision, CompletionReason.ALL_NIGHT_ACTIONS_SUBMITTED);
     }
 
@@ -138,8 +142,19 @@ public final class GameSession implements GameEventHandler {
         markDead(actor, "DISCONNECT");
         votes.remove(actor);
         votes.entrySet().removeIf(vote -> vote.getValue().equals(actor));
-        characters.onPlayerLeft(actor);
-        if (finishGameIfWon()) return;
+        // 안 낸 마지막 능력자가 나가면 캐릭터가 여기서 밤 마감을 요청한다.
+        // 승패를 먼저 보고(마피아가 나갔으면 그대로 종료), 이어지는 판일 때만 밤을 마감한다.
+        deferringNightCompletion = true;
+        try {
+            characters.onPlayerLeft(actor);
+        } finally {
+            deferringNightCompletion = false;
+        }
+        if (finishGameIfWon()) {
+            deferredNightCompletion = -1;
+            return;
+        }
+        runDeferredNightCompletion();
         if (phase == Phase.VOTE && hasEveryoneVoted()) {
             completePhase(phaseRevision, CompletionReason.ALL_VOTES_CAST);
         }

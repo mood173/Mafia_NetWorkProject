@@ -92,6 +92,30 @@ final class GameSessionRealRolesTest {
                 .filter(m -> m.type() == MessageType.SYSTEM_CHAT && m.field(0).equals(SAVED)).count());
     }
 
+    @Test
+    void nightEndsAtOnceWhenTheLastAbilityHolderWhoHasNotActedLeaves() {
+        game.onPlayerMessage("maf", Message.of(MessageType.MAFIA_ATTACK, "c1"));
+        game.onPlayerMessage("doc", Message.of(MessageType.DOCTOR_HEAL, "c2"));
+        game.onPlayerLeft("pol"); // 경찰이 내지 않고 나감 → 시간 만료를 기다리지 않는다
+        assertEquals(Phase.DAY_RESULT, game.phase());
+        assertFalse(game.alive().contains("c1"), "마피아 공격은 그대로 적용");
+        assertEquals(List.of("pol", "DISCONNECT"), channel.inbox.get("c3").stream()
+                .filter(m -> m.type() == MessageType.PLAYER_DIED).findFirst().orElseThrow().fields(),
+                "나간 사람의 사망 알림이 밤 결과보다 먼저");
+    }
+
+    @Test
+    void mafiaLeavingAtNightEndsTheGameOnceWithoutANightResult() {
+        game.onPlayerMessage("pol", Message.of(MessageType.POLICE_CHECK, "c1"));
+        game.onPlayerMessage("doc", Message.of(MessageType.DOCTOR_HEAL, "c2"));
+        game.onPlayerLeft("maf"); // 마지막 미제출자가 마피아 → 밤 마감보다 승패가 먼저
+        assertEquals(Phase.GAME_END, game.phase());
+        assertEquals(1, count("c1", MessageType.GAME_END), "게임 종료는 한 번");
+        assertEquals("CITIZEN", channel.inbox.get("c1").stream()
+                .filter(m -> m.type() == MessageType.GAME_END).findFirst().orElseThrow().field(0));
+        assertEquals(0, count("c1", MessageType.NIGHT_RESULT), "끝난 판의 밤 결과는 보내지 않는다");
+    }
+
     private static final String SAVED = "[SYSTEM]: 의사가 시민을 살렸습니다!";
 
     @Test
