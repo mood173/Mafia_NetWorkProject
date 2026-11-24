@@ -8,6 +8,7 @@ public final class ClientState {
     private String myName="",myRole="",roomId="",roomName="",host="",roomCode="",winner="",reveal="";
     private Phase phase=Phase.WAITING;
     private long deadline;
+    private final List<String> participants=new ArrayList<>();
     private final List<String> alive=new ArrayList<>();
     private final Map<String,Boolean> ready=new LinkedHashMap<>();
     void apply(Message m) {
@@ -23,7 +24,13 @@ public final class ClientState {
                 }
             }
             case ROOM_CODE -> roomCode=m.field(0);
-            case GAME_START -> { clearGame(); if(!m.field(0).isEmpty()) alive.addAll(Arrays.asList(m.field(0).split(","))); }
+            case GAME_START -> {
+                clearGame();
+                if(!m.field(0).isEmpty()){
+                    List<String> all=Arrays.asList(m.field(0).split(","));
+                    participants.addAll(all); alive.addAll(all);
+                }
+            }
             case ROLE -> myRole=m.field(0);
             case PHASE_CHANGE -> updatePhase(m.field(0),m.field(1));
             case GAME_STATE -> {
@@ -41,11 +48,12 @@ public final class ClientState {
         if(duration<0) throw new IllegalArgumentException("음수 시간");
         phase=next; deadline=System.nanoTime()+duration*1_000_000_000L;
     }
-    private void clearGame() { myRole=""; alive.clear(); phase=Phase.WAITING; deadline=0; winner=""; reveal=""; }
+    private void clearGame() { myRole=""; participants.clear(); alive.clear(); phase=Phase.WAITING; deadline=0; winner=""; reveal=""; }
     private void clearRoom() { roomId=""; roomName=""; host=""; roomCode=""; ready.clear(); clearGame(); }
     public void reset() { myName=""; clearRoom(); }
     public String myName(){return myName;} public String myRole(){return myRole;}
-    public Phase phase(){return phase;} public List<String> alive(){return List.copyOf(alive);}
+    public Phase phase(){return phase;} public List<String> participants(){return List.copyOf(participants);}
+    public List<String> alive(){return List.copyOf(alive);}
     public boolean amAlive(){return alive.contains(myName);}
     public String roomId(){return roomId;} public String roomName(){return roomName;}
     public String host(){return host;} public String roomCode(){return roomCode;}

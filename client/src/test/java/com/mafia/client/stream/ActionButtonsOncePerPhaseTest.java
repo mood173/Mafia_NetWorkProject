@@ -1,9 +1,14 @@
 package com.mafia.client.stream;
 
+import StreamSystem.AppStream;
+import StreamSystem.StreamManager;
 import com.mafia.client.demo.DemoAbilityPanel;
+import com.mafia.client.demo.DemoChatPanel;
+import com.mafia.client.game.PhaseBanner;
 import com.mafia.client.game.VotePanel;
 import com.mafia.client.net.Connection;
 import com.mafia.client.net.MessageListener;
+import com.mafia.client.scene.GameScene;
 import com.mafia.common.protocol.Message;
 import com.mafia.common.protocol.MessageType;
 import org.junit.jupiter.api.Test;
@@ -99,5 +104,78 @@ final class ActionButtonsOncePerPhaseTest {
             assertEquals(Message.of(MessageType.VOTE, ""), sent.get(1));
             assertFalse(vote.isEnabled() || abstain.isEnabled(), "기권 직후에도 비활성화");
         });
+    }
+
+    private static <T extends Component> T findByType(Container root, Class<T> type) {
+        for (Component c : root.getComponents()) {
+            if (type.isInstance(c)) return type.cast(c);
+            if (c instanceof Container child) {
+                T found = findByType(child, type);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    @Test
+    void errorUnlocksActionButtonsAndShowsAliveDeadAndVoteTally() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            ClientState state = inGame("MAFIA");
+            phase(state, "NIGHT");
+            DemoAbilityPanel ability = new DemoAbilityPanel(state, capture);
+            VotePanel votePanel = new VotePanel(state, capture);
+            GameScene scene = new GameScene(state, capture, new PhaseBanner(state), votePanel, ability, new DemoChatPanel(capture));
+            scene.onEnter();
+
+            // 밤 능력 거절(ERROR) 시 버튼 잠금 해제 확인
+            JButton use = button(ability, "밤 능력 선택");
+            use.doClick();
+            assertFalse(use.isEnabled());
+            scene.onMessage(Message.of(MessageType.ERROR, "같은 팀은 공격할 수 없습니다"));
+            assertTrue(use.isEnabled(), "ERROR 수신 시 밤 능력 버튼 잠금 해제");
+
+            // 사망 처리 후 좌측 목록에 생존/사망 표시 확인
+            state.apply(Message.of(MessageType.PLAYER_DIED, "userB", "ATTACK"));
+            scene.onMessage(Message.of(MessageType.PLAYER_DIED, "userB", "ATTACK"));
+            @SuppressWarnings("unchecked")
+            JList<String> list = findByType((Container) scene.view(), JList.class);
+            assertNotNull(list);
+            List<String> items = new ArrayList<>();
+            for (int i = 0; i < list.getModel().getSize(); i++) items.add(list.getModel().getElementAt(i));
+            assertTrue(items.contains("userA [생존]"));
+            assertTrue(items.contains("userB [사망]"));
+
+            // 투표 거절(ERROR) 시 잠금 해제 및 VOTE_RESULT 집계 출력 확인
+            phase(state, "VOTE");
+            scene.onMessage(Message.of(MessageType.PHASE_CHANGE, "VOTE", "15"));
+            JButton voteBtn = button(votePanel, "투표");
+            voteBtn.doClick();
+            assertFalse(voteBtn.isEnabled());
+            scene.onMessage(Message.of(MessageType.ERROR, "투표 대상 오류"));
+            assertTrue(voteBtn.isEnabled(), "ERROR 수신 시 투표 버튼 잠금 해제");
+
+            scene.onMessage(Message.of(MessageType.VOTE_RESULT, "1-1", "1-1:3,userA:1"));
+            JTextArea notice = findByType((Container) scene.view(), JTextArea.class);
+            assertNotNull(notice);
+            assertTrue(notice.getText().contains("1-1 처형 (1-1:3,userA:1)"));
+            scene.onExit();
+        });
+    }
+
+    @Test
+    void streamManagerReturnsToRoomOnlyWhenRequested() {
+        StreamManager sm = new StreamManager();
+        sm.accept(Message.of(MessageType.LOGIN_OK, "userA"));
+        sm.accept(Message.of(MessageType.GAME_START, "userA,userB"));
+        sm.accept(Message.of(MessageType.GAME_END, "CITIZEN", "userA:CITIZEN,userB:MAFIA"));
+        assertEquals(AppStream.End, sm.app());
+
+        // 다른 사람의 ROOM_STATE로는 결과 화면을 벗어나지 않음
+        sm.accept(Message.of(MessageType.ROOM_STATE, "1", "room", "PUBLIC", "userA", "userA:false"));
+        assertEquals(AppStream.End, sm.app());
+
+        // 본인이 직접 대기방 복귀 호출 시 FrontDesk로 전환
+        sm.returnToRoom();
+        assertEquals(AppStream.FrontDesk, sm.app());
     }
 }

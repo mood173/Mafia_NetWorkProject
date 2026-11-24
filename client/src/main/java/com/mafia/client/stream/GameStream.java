@@ -42,6 +42,11 @@ public final class GameStream implements MessageListener {
             if(current!=null)scenes.get(current).onMessage(Message.of(MessageType.ERROR,"서버 메시지 형식 오류: "+e.getMessage()));
         }
     }
+    public void returnToRoom() {
+        requireEdt();
+        flow.returnToRoom();
+        go(sceneFor(flow.app()));
+    }
     public void onDisconnected() {
         if(!SwingUtilities.isEventDispatchThread()){SwingUtilities.invokeLater(this::onDisconnected);return;}
         flow.disconnected();state.reset();go(SceneId.MAIN);

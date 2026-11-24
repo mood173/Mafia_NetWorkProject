@@ -4,9 +4,11 @@ import com.mafia.client.stream.*;
 import com.mafia.client.game.*;
 import com.mafia.client.character.AbilityView;
 import com.mafia.client.ui.ChatView;
+import com.mafia.common.model.Phase;
 import com.mafia.common.protocol.*;
 import javax.swing.*;
 import java.awt.*;
+import java.util.*;
 public final class GameScene implements Scene {
     private final ClientState state;private final JPanel panel=new JPanel(new BorderLayout(10,10));
     private final DefaultListModel<String> alive=new DefaultListModel<>();
@@ -23,15 +25,34 @@ public final class GameScene implements Scene {
     public JComponent view(){return panel;}
     public void onEnter(){notice.setText("");chat.reset();banner.start();render();}
     public void onExit(){banner.stop();}
-    private void render(){banner.render();alive.clear();state.alive().forEach(alive::addElement);votes.render();abilities.render();chat.render(state);}
+    private void render(){
+        banner.render();
+        alive.clear();
+        Set<String> aliveSet=new HashSet<>(state.alive());
+        if(!state.participants().isEmpty()){
+            for(String name:state.participants()) alive.addElement(name+(aliveSet.contains(name)?" [생존]":" [사망]"));
+        } else {
+            for(String name:state.alive()) alive.addElement(name+" [생존]");
+        }
+        votes.render();abilities.render();chat.render(state);
+    }
     public void onMessage(Message m){
         render();chat.accept(m);
         switch(m.type()){
-            case ERROR,SYSTEM_CHAT -> notice.append(m.field(0)+"\n");
+            case ERROR -> {
+                notice.append(m.field(0)+"\n");
+                if(state.phase()==Phase.NIGHT) abilities.unlockOnError();
+                else if(state.phase()==Phase.VOTE) votes.unlockOnError();
+            }
+            case SYSTEM_CHAT -> notice.append(m.field(0)+"\n");
             case POLICE_RESULT -> notice.append("조사: "+m.field(0)+" / 마피아="+m.field(1)+"\n");
             case NIGHT_RESULT -> notice.append("밤 결과: "+(m.field(0).isEmpty()?"사망 없음":m.field(0))+"\n");
             case PLAYER_DIED -> notice.append(m.field(0)+" 사망 ("+m.field(1)+")\n");
-            case VOTE_RESULT -> notice.append("투표 결과: "+(m.field(0).isEmpty()?"처형 없음":m.field(0))+"\n");
+            case VOTE_RESULT -> {
+                String eliminated=m.field(0).isEmpty()?"처형 없음":m.field(0)+" 처형";
+                String tally=m.field(1).isEmpty()?"":" ("+m.field(1)+")";
+                notice.append("투표 결과: "+eliminated+tally+"\n");
+            }
             default -> { }
         }
     }

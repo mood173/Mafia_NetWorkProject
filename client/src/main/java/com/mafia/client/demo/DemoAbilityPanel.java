@@ -22,6 +22,7 @@ public final class DemoAbilityPanel extends JPanel implements com.mafia.client.c
             }
         });
     }
+    public void unlockOnError(){used=false;render();}
     public void render(){
         if(state.phase()!=lastPhase){lastPhase=state.phase();used=false;}
         Object selected=target.getSelectedItem();target.removeAllItems();
