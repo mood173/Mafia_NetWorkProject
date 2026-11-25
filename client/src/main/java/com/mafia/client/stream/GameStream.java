@@ -39,7 +39,7 @@ public final class GameStream implements MessageListener {
             state.apply(message); SceneId next=sceneFor(flow.accept(message)); go(next);
             scenes.get(current).onMessage(message);
         } catch(IllegalArgumentException e) {
-            if(current!=null)scenes.get(current).onMessage(Message.of(MessageType.ERROR,"서버 메시지 형식 오류: "+e.getMessage()));
+            if(current!=null)scenes.get(current).onMessage(Rejection.of("서버 메시지 형식 오류: "+e.getMessage()).toMessage());
         }
     }
     public void returnToRoom() {
@@ -50,7 +50,7 @@ public final class GameStream implements MessageListener {
     public void onDisconnected() {
         if(!SwingUtilities.isEventDispatchThread()){SwingUtilities.invokeLater(this::onDisconnected);return;}
         flow.disconnected();state.reset();go(SceneId.MAIN);
-        scenes.get(current).onMessage(Message.of(MessageType.ERROR,"서버 연결이 끊겼습니다"));
+        scenes.get(current).onMessage(Rejection.of("서버 연결이 끊겼습니다").toMessage());
     }
     private static void requireEdt(){if(!SwingUtilities.isEventDispatchThread())throw new IllegalStateException("EDT에서 호출해야 함");}
 }

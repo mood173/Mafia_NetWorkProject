@@ -15,7 +15,7 @@ public final class PersonalChecks {
         StreamManager f = new StreamManager();
         check(f.app()==AppStream.main,"initial");
         f.accept(Message.of(MessageType.LOGIN_OK,"A"));check(f.app()==AppStream.Lobby,"login");
-        f.accept(Message.of(MessageType.ERROR,"bad"));check(f.app()==AppStream.Lobby,"error stays");
+        f.accept(Rejection.of("bad").toMessage());check(f.app()==AppStream.Lobby,"error stays");
         f.accept(Message.of(MessageType.GAME_START,"A,B,C,D,E,F"));check(f.app()==AppStream.GameScene,"game");
         f.accept(Message.of(MessageType.PHASE_CHANGE,"NIGHT","40"));check(f.game()==gameStream.NIGHT,"phase");
         f.accept(Message.of(MessageType.GAME_END,"CITIZEN","A:MAFIA"));check(f.app()==AppStream.End,"result");
@@ -29,6 +29,13 @@ public final class PersonalChecks {
         MessageCodec codec=new MessageCodec();
         Message m=Message.of(MessageType.ROOM_STATE,"1","room","PUBLIC","A","A:false");
         check(codec.decode(codec.encode(m),Direction.SERVER_TO_CLIENT).equals(m),"shared draft protocol");
+        // 거절 응답: 줄로 바꿨다가 되읽어도 요청 종류와 코드가 그대로다
+        Rejection sent=Rejection.of("이미 투표함",MessageType.VOTE,RejectCode.ALREADY_DONE);
+        Rejection back=Rejection.from(codec.decode(codec.encode(sent.toMessage()),Direction.SERVER_TO_CLIENT));
+        check(back.equals(sent)&&back.isAbout(MessageType.VOTE)&&!back.isAbout(MessageType.CHAT),"rejection round trip");
+        Rejection plain=Rejection.from(codec.decode(codec.encode(Rejection.of("연결 오류").toMessage()),Direction.SERVER_TO_CLIENT));
+        check(plain.request().isEmpty()&&plain.code()==RejectCode.UNKNOWN,"rejection without request");
+        check(Rejection.from(Message.of(MessageType.ERROR,"옛 형식")).code()==RejectCode.UNKNOWN,"one-field error is read as unknown");
     }
 
     static final class Clock implements PhaseTimer {

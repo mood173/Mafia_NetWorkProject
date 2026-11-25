@@ -3,6 +3,8 @@ package com.mafia.server.game;
 import com.mafia.common.model.Phase;
 import com.mafia.common.protocol.Message;
 import com.mafia.common.protocol.MessageType;
+import com.mafia.common.protocol.RejectCode;
+import com.mafia.common.protocol.Rejection;
 import com.mafia.server.character.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -62,11 +64,11 @@ public final class GameSession implements GameEventHandler {
     @Override
     public synchronized void onPlayerMessage(String actor, Message message) {
         if (!started || !alive.contains(actor)) {
-            reject(actor, "살아 있는 참가자만 행동 가능");
+            reject(actor, message.type(), RejectCode.NOT_ALLOWED_NOW, "살아 있는 참가자만 행동 가능");
             return;
         }
         if (!phaseRules.get(phase).accepts(message.type())) {
-            reject(actor, "현재 단계에서 할 수 없는 행동");
+            reject(actor, message.type(), RejectCode.NOT_ALLOWED_NOW, "현재 단계에서 할 수 없는 행동");
             return;
         }
         if (message.type() == MessageType.VOTE) submitVote(actor, message.field(0));
@@ -81,11 +83,11 @@ public final class GameSession implements GameEventHandler {
             default -> null;
         };
         if (action == null) {
-            reject(actor, "별도 채팅 처리 필요");
+            reject(actor, message.type(), RejectCode.UNKNOWN, "별도 채팅 처리 필요");
             return;
         }
         if (!alive.contains(message.field(0))) {
-            reject(actor, "살아 있는 대상만 선택 가능");
+            reject(actor, message.type(), RejectCode.INVALID_TARGET, "살아 있는 대상만 선택 가능");
             return;
         }
         // 판은 단계·생존을 검사한다. 직업/대상 규칙은 캐릭터가 판단한다.
@@ -98,7 +100,7 @@ public final class GameSession implements GameEventHandler {
         } finally {
             deferringNightCompletion = false;
         }
-        if (!result.accepted()) reject(actor, result.reason());
+        if (!result.accepted()) reject(actor, message.type(), result.code(), result.reason());
         else notifyActor(actor, message.field(0) + "에게 능력을 사용했습니다.");
         runDeferredNightCompletion();
     }
@@ -119,11 +121,11 @@ public final class GameSession implements GameEventHandler {
 
     private void submitVote(String actor, String target) {
         if (votes.containsKey(actor)) {
-            reject(actor, "이미 투표함");
+            reject(actor, MessageType.VOTE, RejectCode.ALREADY_DONE, "이미 투표함");
             return;
         }
         if (!target.isEmpty() && (!alive.contains(target) || target.equals(actor))) {
-            reject(actor, "투표 대상 오류");
+            reject(actor, MessageType.VOTE, RejectCode.INVALID_TARGET, "투표 대상 오류");
             return;
         }
         votes.put(actor, target);
@@ -247,8 +249,9 @@ public final class GameSession implements GameEventHandler {
         if (alive.remove(name)) channel.broadcast(Message.of(MessageType.PLAYER_DIED, name, cause));
     }
 
-    private void reject(String name, String reason) {
-        channel.send(name, Message.of(MessageType.ERROR, reason));
+    /** 거절은 요청한 사람에게만 보낸다. 어떤 요청이 왜 거절됐는지를 함께 담아 화면이 구별하게 한다. */
+    private void reject(String name, MessageType request, RejectCode code, String reason) {
+        channel.send(name, Rejection.of(reason, request, code).toMessage());
     }
 
     /** 밤 시작(첫 밤 포함)과 아침(밤 → 낮 결과)에 방 전체로 보내는 시스템 안내. */

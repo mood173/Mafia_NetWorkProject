@@ -11,6 +11,8 @@ import com.mafia.client.net.MessageListener;
 import com.mafia.client.scene.GameScene;
 import com.mafia.common.protocol.Message;
 import com.mafia.common.protocol.MessageType;
+import com.mafia.common.protocol.RejectCode;
+import com.mafia.common.protocol.Rejection;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.*;
@@ -131,8 +133,14 @@ final class ActionButtonsOncePerPhaseTest {
             JButton use = button(ability, "밤 능력 선택");
             use.doClick();
             assertFalse(use.isEnabled());
-            scene.onMessage(Message.of(MessageType.ERROR, "같은 팀은 공격할 수 없습니다"));
-            assertTrue(use.isEnabled(), "ERROR 수신 시 밤 능력 버튼 잠금 해제");
+            // 채팅이 거절된 것이면 능력 버튼은 잠긴 채로 둔다
+            scene.onMessage(Rejection.of("지금은 채팅할 수 없습니다", MessageType.CHAT).toMessage());
+            assertFalse(use.isEnabled(), "다른 요청의 거절로는 밤 능력 버튼이 풀리지 않는다");
+            // 이미 받아들여진 능력을 또 보낸 거절이면 풀지 않는다
+            scene.onMessage(Rejection.of("이미 능력을 사용했습니다", MessageType.MAFIA_ATTACK, RejectCode.ALREADY_DONE).toMessage());
+            assertFalse(use.isEnabled(), "ALREADY_DONE이면 잠금 유지");
+            scene.onMessage(Rejection.of("같은 팀은 공격할 수 없습니다", MessageType.MAFIA_ATTACK, RejectCode.INVALID_TARGET).toMessage());
+            assertTrue(use.isEnabled(), "능력이 거절되면 밤 능력 버튼 잠금 해제");
 
             // 사망 처리 후 좌측 목록에 생존/사망 표시 확인
             state.apply(Message.of(MessageType.PLAYER_DIED, "userB", "ATTACK"));
@@ -151,8 +159,10 @@ final class ActionButtonsOncePerPhaseTest {
             JButton voteBtn = button(votePanel, "투표");
             voteBtn.doClick();
             assertFalse(voteBtn.isEnabled());
-            scene.onMessage(Message.of(MessageType.ERROR, "투표 대상 오류"));
-            assertTrue(voteBtn.isEnabled(), "ERROR 수신 시 투표 버튼 잠금 해제");
+            scene.onMessage(Rejection.of("채팅은 1~200자입니다", MessageType.CHAT).toMessage());
+            assertFalse(voteBtn.isEnabled(), "다른 요청의 거절로는 투표 버튼이 풀리지 않는다");
+            scene.onMessage(Rejection.of("투표 대상 오류", MessageType.VOTE, RejectCode.INVALID_TARGET).toMessage());
+            assertTrue(voteBtn.isEnabled(), "투표가 거절되면 투표 버튼 잠금 해제");
 
             scene.onMessage(Message.of(MessageType.VOTE_RESULT, "1-1", "1-1:3,userA:1"));
             JTextArea notice = findByType((Container) scene.view(), JTextArea.class);

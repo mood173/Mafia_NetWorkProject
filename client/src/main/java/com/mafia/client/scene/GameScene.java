@@ -40,9 +40,14 @@ public final class GameScene implements Scene {
         render();chat.accept(m);
         switch(m.type()){
             case ERROR -> {
-                notice.append(m.field(0)+"\n");
-                if(state.phase()==Phase.NIGHT) abilities.unlockOnError();
-                else if(state.phase()==Phase.VOTE) votes.unlockOnError();
+                Rejection rejection=Rejection.from(m);
+                notice.append(rejection.reason()+"\n");
+                // 거절된 요청의 버튼만 다시 연다. 채팅처럼 다른 요청이 거절된 것이면 건드리지 않고,
+                // 이미 받아들여진 행동을 또 보낸 거절(ALREADY_DONE)이면 잠금을 그대로 둔다.
+                if(rejection.code()!=RejectCode.ALREADY_DONE){
+                    if(rejection.isAbout(MessageType.MAFIA_ATTACK,MessageType.DOCTOR_HEAL,MessageType.POLICE_CHECK)) abilities.unlockOnError();
+                    else if(rejection.isAbout(MessageType.VOTE)) votes.unlockOnError();
+                }
             }
             case SYSTEM_CHAT -> notice.append(m.field(0)+"\n");
             case POLICE_RESULT -> notice.append("조사: "+m.field(0)+" / 마피아="+m.field(1)+"\n");

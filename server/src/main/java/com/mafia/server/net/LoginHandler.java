@@ -7,7 +7,7 @@ public final class LoginHandler implements MessageHandler {
     public void handle(Session from,Message message) {
         String name=message.field(0);
         if(!name.matches("[\\p{L}\\p{N}_-]{1,16}") || !(from instanceof ClientHandler client) || !client.login(name,sessions))
-            from.send(Message.of(MessageType.ERROR,"닉네임 중복, 형식 오류 또는 이미 로그인된 연결입니다"));
+            from.send(Rejection.of("닉네임 중복, 형식 오류 또는 이미 로그인된 연결입니다",MessageType.LOGIN).toMessage());
         else from.send(Message.of(MessageType.LOGIN_OK,name));
     }
 }

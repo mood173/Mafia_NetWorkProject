@@ -3,6 +3,7 @@ package com.mafia.server.engine;
 import com.mafia.common.protocol.Direction;
 import com.mafia.common.protocol.Message;
 import com.mafia.common.protocol.MessageType;
+import com.mafia.common.protocol.Rejection;
 import com.mafia.server.net.Session;
 
 import java.util.Collections;
@@ -30,7 +31,7 @@ public final class MessageRouter {
     public void dispatch(Session from, Message message) {
         MessageHandler handler = handlers.get(message.type());
         if (handler == null) {
-            from.send(Message.of(MessageType.ERROR, "아직 처리할 수 없는 메시지: " + message.type()));
+            from.send(Rejection.of("아직 처리할 수 없는 메시지: " + message.type(), message.type()).toMessage());
             return;
         }
         handler.handle(from, message);
