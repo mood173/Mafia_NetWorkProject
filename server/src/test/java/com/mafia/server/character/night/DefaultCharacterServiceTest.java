@@ -123,6 +123,26 @@ final class DefaultCharacterServiceTest {
     }
 
     @Test
+    void lastMissingAbilityHolderLeavingCompletesTheNightOnce() {
+        submit("maf", ActionType.ATTACK, "c1");
+        submit("doc", ActionType.HEAL, "c2");
+        assertEquals(0, completed.get(), "경찰이 아직 안 냄");
+        service.onPlayerLeft("pol");
+        assertEquals(1, completed.get(), "남은 능력자가 모두 냈으므로 시간 전에 끝난다");
+        service.onPlayerLeft("c3");
+        assertEquals(1, completed.get(), "완료 알림은 한 번만");
+    }
+
+    @Test
+    void leavingAfterTheNightClosedDoesNotNotify() {
+        submit("maf", ActionType.ATTACK, "c1");
+        submit("doc", ActionType.HEAL, "c2");
+        service.endNight();
+        service.onPlayerLeft("pol");
+        assertEquals(0, completed.get());
+    }
+
+    @Test
     void nightWithoutLivingAbilityHoldersCompletesImmediately() {
         AtomicInteger done = new AtomicInteger();
         service.beginNight(Set.of("c1", "c2"), roles, done::incrementAndGet);

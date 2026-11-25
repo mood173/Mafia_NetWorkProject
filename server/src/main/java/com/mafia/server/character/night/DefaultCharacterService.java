@@ -15,7 +15,7 @@ import java.util.*;
  * - 능력은 밤마다 한 번 확정이다. 받아들여진 뒤 다시 내면 거절한다 (화면도 사용 후 잠근다).
  * - 거절된 시도는 한 번에 포함되지 않는다.
  * - 공격 대상과 보호 대상이 같으면 아무도 죽지 않고, 결과에 '의사가 막음'을 표시한다. 조사 결과는 경찰 본인에게만 간다.
- * - 살아 있는 능력자가 모두 내면 판에 한 번 알린다.
+ * - 살아 있는 능력자가 모두 내면 판에 한 번 알린다. 안 낸 사람이 나가서 그렇게 된 경우도 같다.
  */
 public final class DefaultCharacterService implements CharacterService {
     private final Map<String, NightAction> actions = new LinkedHashMap<>();
@@ -76,6 +76,8 @@ public final class DefaultCharacterService implements CharacterService {
         alive.remove(actor);
         actions.remove(actor);
         actions.values().removeIf(action -> action.target().equals(actor));
+        // 아직 안 낸 마지막 능력자가 나가면 남은 사람은 모두 낸 상태다. 시간 만료를 기다리지 않는다.
+        notifyIfAllSubmitted();
     }
 
     private void notifyIfAllSubmitted() {
