@@ -9,7 +9,7 @@ import com.mafia.server.engine.GameConfig;
 public final class PersonalChecks {
     static int checks;
     static void check(boolean ok,String label){checks++;if(!ok)throw new AssertionError(label);}
-    public static void main(String[] args){flow(); room(); night(); System.out.println("PASS week 12 personal checks: "+checks);}
+    public static void main(String[] args){flow(); room(); night(); voting(); System.out.println("PASS personal checks: "+checks);}
 
     static void flow() {
         StreamManager f = new StreamManager();
@@ -85,5 +85,26 @@ public final class PersonalChecks {
         f.clock.jobs.get(0).run();check(f.game.phase()==Phase.DAY_RESULT,"stale timeout ignored");
         f.clock.fire();check(f.game.phase()==Phase.DAY_TALK,"day follows result");
         Fixture timeout=fixture();timeout.game.start();timeout.clock.fire();check(timeout.game.phase()==Phase.DAY_RESULT,"timeout");
+    }
+
+    /** 13주차: 투표 집계, 본인 투표·중복 투표 거절, 처형 뒤 승패 판정. */
+    static void voting(){
+        VoteCounter votes=new VoteCounter();check(votes.count(Map.of("A","B","B","A")).eliminated().isEmpty(),"tie");
+        check(votes.count(Map.of("A","","B","")).eliminated().isEmpty(),"abstain");
+        Fixture f=fixture();f.game.start();finishNight(f);f.clock.fire();f.clock.fire();
+        check(f.game.phase()==Phase.VOTE,"vote after talk");
+        f.game.onPlayerMessage("B",Message.of(MessageType.VOTE,"B"));
+        check(rejections(f,"B").stream().anyMatch(r->r.isAbout(MessageType.VOTE)&&r.code()==RejectCode.INVALID_TARGET),"self vote rejected as invalid target");
+        f.game.onPlayerMessage("B",Message.of(MessageType.VOTE,"A"));f.game.onPlayerMessage("B",Message.of(MessageType.VOTE,"A"));
+        check(rejections(f,"B").stream().anyMatch(r->r.isAbout(MessageType.VOTE)&&r.code()==RejectCode.ALREADY_DONE),"duplicate vote rejected as already done");
+        for(String voter:List.of("A","C","E","F"))f.game.onPlayerMessage(voter,Message.of(MessageType.VOTE,voter.equals("A")?"":"A"));
+        check(f.game.phase()==Phase.GAME_END,"citizen wins");
+        f.clock.fire();check(f.channel.all.stream().filter(m->m.type()==MessageType.GAME_END).count()==1,"single ending");
+        // 단계 밖 요청의 거절에는 보낸 요청 종류가 그대로 담긴다
+        Fixture g=fixture();g.game.start();g.game.onPlayerMessage("A",Message.of(MessageType.VOTE,"B"));
+        check(rejections(g,"A").stream().anyMatch(r->r.isAbout(MessageType.VOTE)&&r.code()==RejectCode.NOT_ALLOWED_NOW),"out-of-phase request names itself");
+    }
+    static List<Rejection> rejections(Fixture f,String player){
+        return f.channel.own.getOrDefault(player,List.of()).stream().filter(m->m.type()==MessageType.ERROR).map(Rejection::from).toList();
     }
 }
