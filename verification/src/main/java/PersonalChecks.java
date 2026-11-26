@@ -9,7 +9,7 @@ import com.mafia.server.engine.GameConfig;
 public final class PersonalChecks {
     static int checks;
     static void check(boolean ok,String label){checks++;if(!ok)throw new AssertionError(label);}
-    public static void main(String[] args){flow(); room(); night(); voting(); disconnect(); System.out.println("PASS personal checks: "+checks);}
+    public static void main(String[] args){flow(); room(); night(); voting(); disconnect(); factory(); System.out.println("PASS personal checks: "+checks);}
 
     static void flow() {
         StreamManager f = new StreamManager();
@@ -112,5 +112,13 @@ public final class PersonalChecks {
     static void disconnect(){
         Fixture f=fixture();f.game.start();f.game.onPlayerLeft("A");check(f.game.phase()==Phase.GAME_END,"mafia disconnect ends game");
         f.game.onPlayerLeft("A");check(f.channel.all.stream().filter(m->m.type()==MessageType.PLAYER_DIED).count()==1,"disconnect idempotent");
+    }
+
+    /** 15주차: 판을 팩토리로 만들어도 설정대로 6명에게 직업이 배정된다. */
+    static void factory(){
+        Map<RoleName,RoleAbility> catalog=new EnumMap<>(RoleName.class);for(RoleName name:RoleName.values())catalog.put(name,new StubRole(name));
+        Channel channel=new Channel();GameSessionFactory factory=new GameSessionFactory(GameConfig.defaults(),catalog,FakeCharacters::new,new Clock(),new Random(7));
+        factory.create(channel).start();check(channel.own.size()==6,"six assigned");
+        check(channel.own.values().stream().flatMap(List::stream).filter(m->m.type()==MessageType.ROLE&&m.field(0).equals("MAFIA")).count()==1,"configured distribution");
     }
 }
