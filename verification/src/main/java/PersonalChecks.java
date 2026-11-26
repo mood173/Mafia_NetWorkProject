@@ -9,7 +9,7 @@ import com.mafia.server.engine.GameConfig;
 public final class PersonalChecks {
     static int checks;
     static void check(boolean ok,String label){checks++;if(!ok)throw new AssertionError(label);}
-    public static void main(String[] args){flow(); room(); night(); voting(); System.out.println("PASS personal checks: "+checks);}
+    public static void main(String[] args){flow(); room(); night(); voting(); disconnect(); System.out.println("PASS personal checks: "+checks);}
 
     static void flow() {
         StreamManager f = new StreamManager();
@@ -106,5 +106,11 @@ public final class PersonalChecks {
     }
     static List<Rejection> rejections(Fixture f,String player){
         return f.channel.own.getOrDefault(player,List.of()).stream().filter(m->m.type()==MessageType.ERROR).map(Rejection::from).toList();
+    }
+
+    /** 14주차: 접속 이탈은 사망으로 처리하고, 마피아가 나가면 판이 끝난다. 두 번 불려도 한 번만 처리한다. */
+    static void disconnect(){
+        Fixture f=fixture();f.game.start();f.game.onPlayerLeft("A");check(f.game.phase()==Phase.GAME_END,"mafia disconnect ends game");
+        f.game.onPlayerLeft("A");check(f.channel.all.stream().filter(m->m.type()==MessageType.PLAYER_DIED).count()==1,"disconnect idempotent");
     }
 }

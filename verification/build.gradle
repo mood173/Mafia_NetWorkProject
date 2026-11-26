@@ -2,3 +2,11 @@ plugins { id 'application' }
 dependencies { implementation project(':common'); implementation project(':server'); implementation project(':client') }
 application { mainClass = 'PersonalChecks' }
 tasks.named('check') { dependsOn tasks.named('run') }
+
+// 화면 흐름 검사 (창을 띄우므로 화면이 있는 환경에서만): gradlew :verification:uiCheck
+tasks.register('uiCheck', JavaExec) {
+    dependsOn classes
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'ClientFlowChecks'
+    workingDir = rootProject.projectDir
+}
