@@ -9,7 +9,7 @@ public final class GameMessageHandler implements MessageHandler {
     public GameMessageHandler(Function<String,GameEventHandler> games) { this.games=games; }
     public void handle(Session from,Message message) {
         GameEventHandler game=games.apply(from.name());
-        if(game==null) from.send(Message.of(MessageType.ERROR,"진행 중인 게임 없음"));
+        if(game==null) from.send(Rejection.of("진행 중인 게임 없음",message.type(),RejectCode.NOT_ALLOWED_NOW).toMessage());
         else game.onPlayerMessage(from.name(),message);
     }
 }

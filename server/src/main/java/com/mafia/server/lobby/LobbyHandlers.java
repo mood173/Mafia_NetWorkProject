@@ -2,6 +2,7 @@ package com.mafia.server.lobby;
 
 import com.mafia.common.protocol.Message;
 import com.mafia.common.protocol.MessageType;
+import com.mafia.common.protocol.Rejection;
 import com.mafia.server.engine.MessageHandler;
 import com.mafia.server.engine.MessageRouter;
 
@@ -28,7 +29,7 @@ public final class LobbyHandlers {
             try {
                 handler.handle(from, message);
             } catch (IllegalArgumentException e) {
-                from.send(Message.of(MessageType.ERROR, Objects.requireNonNullElse(e.getMessage(), "요청 오류")));
+                from.send(Rejection.of(Objects.requireNonNullElse(e.getMessage(), "요청 오류"), message.type()).toMessage());
             }
         };
     }

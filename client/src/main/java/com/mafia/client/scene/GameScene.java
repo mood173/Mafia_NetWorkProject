@@ -4,9 +4,11 @@ import com.mafia.client.stream.*;
 import com.mafia.client.game.*;
 import com.mafia.client.character.AbilityView;
 import com.mafia.client.ui.ChatView;
+import com.mafia.common.model.Phase;
 import com.mafia.common.protocol.*;
 import javax.swing.*;
 import java.awt.*;
+import java.util.*;
 public final class GameScene implements Scene {
     private final ClientState state;private final JPanel panel=new JPanel(new BorderLayout(10,10));
     private final DefaultListModel<String> alive=new DefaultListModel<>();
@@ -23,15 +25,39 @@ public final class GameScene implements Scene {
     public JComponent view(){return panel;}
     public void onEnter(){notice.setText("");chat.reset();banner.start();render();}
     public void onExit(){banner.stop();}
-    private void render(){banner.render();alive.clear();state.alive().forEach(alive::addElement);votes.render();abilities.render();chat.render(state);}
+    private void render(){
+        banner.render();
+        alive.clear();
+        Set<String> aliveSet=new HashSet<>(state.alive());
+        if(!state.participants().isEmpty()){
+            for(String name:state.participants()) alive.addElement(name+(aliveSet.contains(name)?" [생존]":" [사망]"));
+        } else {
+            for(String name:state.alive()) alive.addElement(name+" [생존]");
+        }
+        votes.render();abilities.render();chat.render(state);
+    }
     public void onMessage(Message m){
         render();chat.accept(m);
         switch(m.type()){
-            case ERROR,SYSTEM_CHAT -> notice.append(m.field(0)+"\n");
+            case ERROR -> {
+                Rejection rejection=Rejection.from(m);
+                notice.append(rejection.reason()+"\n");
+                // 거절된 요청의 버튼만 다시 연다. 채팅처럼 다른 요청이 거절된 것이면 건드리지 않고,
+                // 이미 받아들여진 행동을 또 보낸 거절(ALREADY_DONE)이면 잠금을 그대로 둔다.
+                if(rejection.code()!=RejectCode.ALREADY_DONE){
+                    if(rejection.isAbout(MessageType.MAFIA_ATTACK,MessageType.DOCTOR_HEAL,MessageType.POLICE_CHECK)) abilities.unlockOnError();
+                    else if(rejection.isAbout(MessageType.VOTE)) votes.unlockOnError();
+                }
+            }
+            case SYSTEM_CHAT -> notice.append(m.field(0)+"\n");
             case POLICE_RESULT -> notice.append("조사: "+m.field(0)+" / 마피아="+m.field(1)+"\n");
             case NIGHT_RESULT -> notice.append("밤 결과: "+(m.field(0).isEmpty()?"사망 없음":m.field(0))+"\n");
             case PLAYER_DIED -> notice.append(m.field(0)+" 사망 ("+m.field(1)+")\n");
-            case VOTE_RESULT -> notice.append("투표 결과: "+(m.field(0).isEmpty()?"처형 없음":m.field(0))+"\n");
+            case VOTE_RESULT -> {
+                String eliminated=m.field(0).isEmpty()?"처형 없음":m.field(0)+" 처형";
+                String tally=m.field(1).isEmpty()?"":" ("+m.field(1)+")";
+                notice.append("투표 결과: "+eliminated+tally+"\n");
+            }
             default -> { }
         }
     }

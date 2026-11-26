@@ -15,6 +15,7 @@ public final class VotePanel extends JPanel {
         abstain.addActionListener(e->{connection.send(Message.of(MessageType.VOTE,""));lockAfterVote();});
     }
     private void lockAfterVote(){voted=true;target.setEnabled(false);vote.setEnabled(false);abstain.setEnabled(false);}
+    public void unlockOnError(){voted=false;render();}
     public void render(){
         if(state.phase()!=lastPhase){lastPhase=state.phase();voted=false;}
         Object selected=target.getSelectedItem();target.removeAllItems();

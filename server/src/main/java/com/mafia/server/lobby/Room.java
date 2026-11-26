@@ -59,6 +59,16 @@ public final class Room implements RoomChannel {
 
     boolean inProgress() { return game != null && game.phase() != Phase.GAME_END; }
 
+    /**
+     * 끝난 판을 치우고 전원을 준비 해제로 돌린다. 판이 없거나 진행 중이면 아무것도 하지 않는다.
+     * 판이 끝나는 순간(GameSession 락 안, 타이머 스레드)에 하지 않고 다음 방 요청 때 한다. 락 순서를 지키기 위해서다.
+     */
+    void resetIfFinished() {
+        if (game == null || inProgress()) return;
+        game = null;
+        ready.replaceAll((name, value) -> false);
+    }
+
     /** ROOM_LIST 항목: 번호,이름,인원,진행여부 */
     String listing() { return id + "," + title + "," + members.size() + "," + inProgress(); }
 

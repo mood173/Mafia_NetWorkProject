@@ -44,6 +44,14 @@ public final class StreamManager {
         return appState;
     }
 
+    /** 결과 화면에서 사용자가 직접 대기방 복귀를 눌렀을 때만 End → FrontDesk로 전환한다. */
+    public void returnToRoom() {
+        if (appState == AppStream.End) {
+            appState = AppStream.FrontDesk;
+            displayedGamePhase = gameStream.WAITING;
+        }
+    }
+
     public void disconnected() {
         appState = AppStream.main;
         displayedGamePhase = gameStream.WAITING;

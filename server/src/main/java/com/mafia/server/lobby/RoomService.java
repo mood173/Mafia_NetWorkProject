@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 
 /**
  * 로비·대기방 규칙: 방 생성, 입장, 퇴장, 준비, 6명 전원 준비 시 게임 시작.
+ * 판이 끝난 방은 다음 준비·입장 요청 때 대기방(전원 준비 해제)으로 돌아가 다시 쓸 수 있다.
  * 규칙 위반은 IllegalArgumentException(사유)으로 알리고, LobbyHandlers가 ERROR로 바꾼다.
  *
  * 락 순서: RoomService → GameSession 한 방향만 허용한다.
@@ -92,7 +93,8 @@ public final class RoomService {
 
     public synchronized void ready(Session from, String value) {
         Room room = roomOf(from);
-        if (room.game() != null) throw new IllegalArgumentException("이미 게임을 시작한 방입니다. 로비에서 새 방을 만드세요");
+        room.resetIfFinished(); // 결과를 본 뒤 같은 방에서 다시 준비할 수 있다
+        if (room.game() != null) throw new IllegalArgumentException("게임이 진행 중인 방입니다");
         if (!value.equals("true") && !value.equals("false")) throw new IllegalArgumentException("준비 값은 true 또는 false입니다");
         room.setReady(from.name(), Boolean.parseBoolean(value));
         room.broadcast(room.state());
@@ -118,6 +120,7 @@ public final class RoomService {
 
     private void enter(Session player, Room room) {
         requireOutsideRoom(player);
+        room.resetIfFinished(); // 끝난 방은 대기방으로 돌아가 다시 들어올 수 있다
         if (room.game() != null) throw new IllegalArgumentException("이미 게임을 시작한 방입니다");
         if (room.size() >= config.roomCapacity()) throw new IllegalArgumentException("방이 가득 찼습니다");
         room.add(player);
@@ -133,6 +136,7 @@ public final class RoomService {
         room.remove(player);
         registry.exit(player.name());
         if (room.game() != null) room.game().onPlayerLeft(player.name());
+        room.resetIfFinished(); // 남은 사람에게 보낼 ROOM_STATE가 지난 판의 준비 표시를 담지 않게
         player.send(Message.of(MessageType.ROOM_LEFT, Integer.toString(room.id())));
         if (room.size() == 0) {
             registry.remove(room);

@@ -3,6 +3,8 @@ package com.mafia.server.game;
 import com.mafia.common.model.Phase;
 import com.mafia.common.protocol.Message;
 import com.mafia.common.protocol.MessageType;
+import com.mafia.common.protocol.RejectCode;
+import com.mafia.common.protocol.Rejection;
 import com.mafia.server.character.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -34,7 +36,7 @@ public final class GameSession implements GameEventHandler {
     private long phaseRevision;
     private long phaseDeadlineNanos;
     private boolean started;
-    private boolean submittingNightAction;
+    private boolean deferringNightCompletion;
     private long deferredNightCompletion = -1;
 
     public GameSession(RoomChannel channel, Map<String, RoleAbility> roles,
@@ -62,11 +64,11 @@ public final class GameSession implements GameEventHandler {
     @Override
     public synchronized void onPlayerMessage(String actor, Message message) {
         if (!started || !alive.contains(actor)) {
-            reject(actor, "살아 있는 참가자만 행동 가능");
+            reject(actor, message.type(), RejectCode.NOT_ALLOWED_NOW, "살아 있는 참가자만 행동 가능");
             return;
         }
         if (!phaseRules.get(phase).accepts(message.type())) {
-            reject(actor, "현재 단계에서 할 수 없는 행동");
+            reject(actor, message.type(), RejectCode.NOT_ALLOWED_NOW, "현재 단계에서 할 수 없는 행동");
             return;
         }
         if (message.type() == MessageType.VOTE) submitVote(actor, message.field(0));
@@ -81,45 +83,49 @@ public final class GameSession implements GameEventHandler {
             default -> null;
         };
         if (action == null) {
-            reject(actor, "별도 채팅 처리 필요");
+            reject(actor, message.type(), RejectCode.UNKNOWN, "별도 채팅 처리 필요");
             return;
         }
         if (!alive.contains(message.field(0))) {
-            reject(actor, "살아 있는 대상만 선택 가능");
+            reject(actor, message.type(), RejectCode.INVALID_TARGET, "살아 있는 대상만 선택 가능");
             return;
         }
         // 판은 단계·생존을 검사한다. 직업/대상 규칙은 캐릭터가 판단한다.
         // 마지막 제출이면 캐릭터가 submit 안에서 바로 밤 마감을 요청하므로,
         // 수락 안내가 밤 결과보다 먼저 가도록 제출하는 동안에는 마감을 미뤘다가 안내 뒤에 실행한다.
         SubmitResult result;
-        submittingNightAction = true;
+        deferringNightCompletion = true;
         try {
             result = characters.submit(actor, new NightAction(action, message.field(0)));
         } finally {
-            submittingNightAction = false;
+            deferringNightCompletion = false;
         }
-        if (!result.accepted()) reject(actor, result.reason());
+        if (!result.accepted()) reject(actor, message.type(), result.code(), result.reason());
         else notifyActor(actor, message.field(0) + "에게 능력을 사용했습니다.");
-        if (deferredNightCompletion >= 0) {
-            long revision = deferredNightCompletion;
-            deferredNightCompletion = -1;
-            completePhase(revision, CompletionReason.ALL_NIGHT_ACTIONS_SUBMITTED);
-        }
+        runDeferredNightCompletion();
     }
 
-    /** 캐릭터의 "전원 제출" 콜백. 제출 처리 중이면 안내를 보낸 뒤로 미룬다. */
+    /** 미뤄 둔 밤 마감이 있으면 지금 실행한다. 그 사이 판이 끝났으면 completePhase가 무시한다. */
+    private void runDeferredNightCompletion() {
+        if (deferredNightCompletion < 0) return;
+        long revision = deferredNightCompletion;
+        deferredNightCompletion = -1;
+        completePhase(revision, CompletionReason.ALL_NIGHT_ACTIONS_SUBMITTED);
+    }
+
+    /** 캐릭터의 "전원 제출" 콜백. 제출·이탈 처리 중이면 안내·승패 확인 뒤로 미룬다. */
     private synchronized void requestNightCompletion(long revision) {
-        if (submittingNightAction) deferredNightCompletion = revision;
+        if (deferringNightCompletion) deferredNightCompletion = revision;
         else completePhase(revision, CompletionReason.ALL_NIGHT_ACTIONS_SUBMITTED);
     }
 
     private void submitVote(String actor, String target) {
         if (votes.containsKey(actor)) {
-            reject(actor, "이미 투표함");
+            reject(actor, MessageType.VOTE, RejectCode.ALREADY_DONE, "이미 투표함");
             return;
         }
         if (!target.isEmpty() && (!alive.contains(target) || target.equals(actor))) {
-            reject(actor, "투표 대상 오류");
+            reject(actor, MessageType.VOTE, RejectCode.INVALID_TARGET, "투표 대상 오류");
             return;
         }
         votes.put(actor, target);
@@ -138,8 +144,19 @@ public final class GameSession implements GameEventHandler {
         markDead(actor, "DISCONNECT");
         votes.remove(actor);
         votes.entrySet().removeIf(vote -> vote.getValue().equals(actor));
-        characters.onPlayerLeft(actor);
-        if (finishGameIfWon()) return;
+        // 안 낸 마지막 능력자가 나가면 캐릭터가 여기서 밤 마감을 요청한다.
+        // 승패를 먼저 보고(마피아가 나갔으면 그대로 종료), 이어지는 판일 때만 밤을 마감한다.
+        deferringNightCompletion = true;
+        try {
+            characters.onPlayerLeft(actor);
+        } finally {
+            deferringNightCompletion = false;
+        }
+        if (finishGameIfWon()) {
+            deferredNightCompletion = -1;
+            return;
+        }
+        runDeferredNightCompletion();
         if (phase == Phase.VOTE && hasEveryoneVoted()) {
             completePhase(phaseRevision, CompletionReason.ALL_VOTES_CAST);
         }
@@ -175,7 +192,11 @@ public final class GameSession implements GameEventHandler {
         result.findings().forEach((officer, finding) -> channel.send(officer,
                 Message.of(MessageType.POLICE_RESULT, finding.target(), Boolean.toString(finding.mafia()))));
         channel.broadcast(Message.of(MessageType.NIGHT_RESULT, String.join(",", result.deaths())));
-        if (!finishGameIfWon()) transitionTo(Phase.DAY_RESULT);
+        if (finishGameIfWon()) return;
+        transitionTo(Phase.DAY_RESULT);
+        // "아침이 밝았습니다" 뒤에 방 전체로 알린다. 누구를 살렸는지는 밝히지 않는다.
+        if (result.savedByDoctor())
+            channel.broadcast(Message.of(MessageType.SYSTEM_CHAT, "[SYSTEM]: 의사가 시민을 살렸습니다!"));
     }
 
     private void finishVoting() {
@@ -228,8 +249,9 @@ public final class GameSession implements GameEventHandler {
         if (alive.remove(name)) channel.broadcast(Message.of(MessageType.PLAYER_DIED, name, cause));
     }
 
-    private void reject(String name, String reason) {
-        channel.send(name, Message.of(MessageType.ERROR, reason));
+    /** 거절은 요청한 사람에게만 보낸다. 어떤 요청이 왜 거절됐는지를 함께 담아 화면이 구별하게 한다. */
+    private void reject(String name, MessageType request, RejectCode code, String reason) {
+        channel.send(name, Rejection.of(reason, request, code).toMessage());
     }
 
     /** 밤 시작(첫 밤 포함)과 아침(밤 → 낮 결과)에 방 전체로 보내는 시스템 안내. */

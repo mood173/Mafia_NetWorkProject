@@ -9,9 +9,9 @@ public final class ClientHandler implements Session, AutoCloseable {
     private final TcpChannel channel;
     public ClientHandler(Socket socket,MessageCodec codec,MessageRouter router,Consumer<ClientHandler> departed) {
         channel=new TcpChannel(socket,codec,Direction.CLIENT_TO_SERVER,m->{
-            if(name==null && m.type()!=MessageType.LOGIN) send(Message.of(MessageType.ERROR,"닉네임 등록이 필요합니다"));
+            if(name==null && m.type()!=MessageType.LOGIN) send(Rejection.of("닉네임 등록이 필요합니다",m.type(),RejectCode.NOT_ALLOWED_NOW).toMessage());
             else router.dispatch(this,m);
-        },error->send(Message.of(MessageType.ERROR,error)),()->departed.accept(this));
+        },error->send(Rejection.of(error).toMessage()),()->departed.accept(this));
     }
     public void start() { channel.start(); }
     public String name() { return name; }

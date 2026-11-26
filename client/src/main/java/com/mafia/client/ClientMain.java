@@ -20,7 +20,7 @@ public final class ClientMain {
         // 테스트 봇 버튼은 실제 서버에 연결할 때만 둔다.
         scenes.register(SceneId.ROOM,new RoomScene(state,connection,socket==null?null:com.mafia.client.bot.RoomBotFiller.forRoom(socket,state)));
         scenes.register(SceneId.GAME,new GameScene(state,connection,new PhaseBanner(state),new VotePanel(state,connection),new DemoAbilityPanel(state,connection),new DemoChatPanel(connection)));
-        scenes.register(SceneId.RESULT,new ResultScene(state,connection));
+        scenes.register(SceneId.RESULT,new ResultScene(state,connection,stream::returnToRoom));
         WiringCheck.orFail(scenes);connection.setListener(stream);stream.start(SceneId.MAIN);
     }
 }

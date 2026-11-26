@@ -52,7 +52,7 @@ public final class DemoServerMain implements AutoCloseable {
                     MessageCodec codec=new MessageCodec();String line;
                     while((line=readBounded(input))!=null){
                         try{handle(this,codec.decode(line,Direction.CLIENT_TO_SERVER));}
-                        catch(IllegalArgumentException|IllegalStateException e){send(Message.of(MessageType.ERROR,e.getMessage()==null?"요청 오류":e.getMessage()));}
+                        catch(IllegalArgumentException|IllegalStateException e){send(Rejection.of(e.getMessage()==null?"요청 오류":e.getMessage()).toMessage());}
                     }
                 }catch(IOException e){/* EOF is handled below */}
                 finally{closeSocket();depart(this);connections.remove(this);}
