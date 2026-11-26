@@ -1,11 +1,15 @@
 package com.mafia.server.game;
 
 import com.mafia.common.model.Phase;
+import com.mafia.common.model.Team;
 import com.mafia.common.protocol.Message;
 import com.mafia.common.protocol.MessageType;
 import com.mafia.common.protocol.RejectCode;
 import com.mafia.common.protocol.Rejection;
 import com.mafia.server.character.*;
+import com.mafia.server.game.event.DayContext;
+import com.mafia.server.game.event.DayEvent;
+import com.mafia.server.game.event.EventDirector;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -13,6 +17,7 @@ import java.util.stream.Collectors;
  * 한 판의 서버 측 상태 소유자이자 진행자.
  * 입력: 사용자 커맨드, 시간 만료, 전원 제출, 접속 끊김.
  * 규칙 조회: PhaseTable / VoteCounter / WinChecker / CharacterService.
+ * 그날의 사건(EventDirector)은 단계 시간, 채팅 전달 모양, 표 접수 알림에만 끼어든다.
  * 상태 변경: 생존자는 markDead(), 단계는 transitionTo()에서만 변경한다.
  * 결과는 RoomChannel로 알린다. Socket과 Swing은 모른다.
  */
@@ -29,6 +34,7 @@ public final class GameSession implements GameEventHandler {
     private final PhaseTable phaseRules;
     private final VoteCounter voteCounter;
     private final WinChecker winChecker;
+    private final EventDirector events;
     private final Map<String, String> votes = new LinkedHashMap<>();
 
     private Phase phase = Phase.WAITING;
@@ -42,6 +48,13 @@ public final class GameSession implements GameEventHandler {
     public GameSession(RoomChannel channel, Map<String, RoleAbility> roles,
                        CharacterService characters, PhaseTimer timer,
                        PhaseTable phaseRules, VoteCounter voteCounter, WinChecker winChecker) {
+        this(channel, roles, characters, timer, phaseRules, voteCounter, winChecker, EventDirector.none());
+    }
+
+    public GameSession(RoomChannel channel, Map<String, RoleAbility> roles,
+                       CharacterService characters, PhaseTimer timer,
+                       PhaseTable phaseRules, VoteCounter voteCounter, WinChecker winChecker,
+                       EventDirector events) {
         this.channel = channel;
         this.roles = Collections.unmodifiableMap(new LinkedHashMap<>(roles));
         this.alive = new LinkedHashSet<>(roles.keySet());
@@ -50,6 +63,7 @@ public final class GameSession implements GameEventHandler {
         this.phaseRules = phaseRules;
         this.voteCounter = voteCounter;
         this.winChecker = winChecker;
+        this.events = events;
     }
 
     @Override
@@ -130,6 +144,7 @@ public final class GameSession implements GameEventHandler {
         }
         votes.put(actor, target);
         notifyActor(actor, target.isEmpty() ? "기권하셨습니다." : target + "님을 투표하셨습니다.");
+        events.onVote(actor, target).forEach(channel::broadcast);
         if (hasEveryoneVoted()) completePhase(phaseRevision, CompletionReason.ALL_VOTES_CAST);
     }
 
@@ -215,13 +230,17 @@ public final class GameSession implements GameEventHandler {
         cancelPhaseTimeout();
         phase = next;
         long enteredRevision = ++phaseRevision;
-        int seconds = phaseRules.get(next).seconds();
+        // 사건은 아침에 작동하고 밤에 들어가거나 판이 끝나면 풀린다. 시간은 작동 중인 사건을 한 번 거친다.
+        if (next == Phase.NIGHT || next == Phase.GAME_END) events.endDay();
+        Optional<DayEvent> todaysEvent = next == Phase.DAY_RESULT ? events.newDay() : Optional.empty();
+        int seconds = events.seconds(next, phaseRules.get(next).seconds());
         phaseDeadlineNanos = timer.nowNanos() + seconds * 1_000_000_000L;
         if (next == Phase.VOTE) votes.clear();
         channel.broadcast(Message.of(MessageType.PHASE_CHANGE, next.name(), Integer.toString(seconds)));
         broadcastState();
         // 단계 안내는 단계를 바꾸는 이곳에서만 보낸다. 밤이 즉시 끝나는 경우에도 순서가 맞도록 타이머·밤 시작보다 먼저.
         announce(next);
+        todaysEvent.ifPresent(this::announceEvent);
 
         if (next != Phase.GAME_END && next != Phase.WAITING) {
             phaseTimeout = timer.schedule(seconds,
@@ -263,6 +282,15 @@ public final class GameSession implements GameEventHandler {
         }
     }
 
+    /** 오늘의 사건을 방 전체에 알리고, 사건이 정한 사람에게만 가는 안내가 있으면 보낸다. */
+    private void announceEvent(DayEvent event) {
+        channel.broadcast(Message.of(MessageType.EVENT, event.code(), event.description()));
+        Map<String, Team> teams = new LinkedHashMap<>();
+        alive.forEach(name -> teams.put(name, roles.get(name).team()));
+        event.onStart(new DayContext(List.copyOf(alive), teams, events.random()))
+                .forEach(note -> notifyActor(note.to(), note.text()));
+    }
+
     /** 행동을 받아들였다는 개인 안내. 본인에게만 보낸다. */
     private void notifyActor(String name, String text) {
         channel.send(name, Message.of(MessageType.SYSTEM_CHAT, "[SYSTEM]: " + text));
@@ -284,6 +312,11 @@ public final class GameSession implements GameEventHandler {
 
     public synchronized boolean canChat(String name) {
         return alive.contains(name) && (phase == Phase.DAY_TALK || phase == Phase.VOTE);
+    }
+
+    /** 게임 중 채팅 한 줄을 방에 전달할 메시지. 채팅을 중계하는 쪽이 canChat을 통과한 뒤 부른다. */
+    public synchronized Message chatMessage(String name, String text) {
+        return events.chat(name, text);
     }
 
     public synchronized int remainingSeconds() {

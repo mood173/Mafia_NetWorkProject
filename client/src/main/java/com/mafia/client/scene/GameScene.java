@@ -50,6 +50,8 @@ public final class GameScene implements Scene {
                 }
             }
             case SYSTEM_CHAT -> notice.append(m.field(0)+"\n");
+            case EVENT -> notice.append("[사건] "+m.field(1)+"\n");
+            case VOTE_CAST -> notice.append("공개 투표: "+m.field(0)+" → "+(m.field(1).isEmpty()?"기권":m.field(1))+"\n");
             case POLICE_RESULT -> notice.append("조사: "+m.field(0)+" / 마피아="+m.field(1)+"\n");
             case NIGHT_RESULT -> notice.append("밤 결과: "+(m.field(0).isEmpty()?"사망 없음":m.field(0))+"\n");
             case PLAYER_DIED -> notice.append(m.field(0)+" 사망 ("+m.field(1)+")\n");

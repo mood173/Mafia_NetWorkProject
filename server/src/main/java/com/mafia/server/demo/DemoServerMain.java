@@ -3,6 +3,7 @@ package com.mafia.server.demo;
 import com.mafia.common.protocol.*;
 import com.mafia.server.engine.GameConfig;
 import com.mafia.server.game.*;
+import com.mafia.server.game.event.DayEvents;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -28,7 +29,8 @@ public final class DemoServerMain implements AutoCloseable {
 
     public DemoServerMain(int port,GameConfig config) throws IOException {
         this.config=config;server=new ServerSocket(port,50,InetAddress.getLoopbackAddress());
-        games=new GameSessionFactory(config,DemoRole.catalog(),DemoCharacterService::new,new ScheduledPhaseTimer(scheduler),new Random());
+        games=new GameSessionFactory(config,DemoRole.catalog(),DemoCharacterService::new,new ScheduledPhaseTimer(scheduler),new Random(),
+                DayEvents.all(),2);
         Thread accept=new Thread(this::acceptLoop,"demo-accept");accept.start();
     }
     public int port(){return server.getLocalPort();}
@@ -115,7 +117,7 @@ public final class DemoServerMain implements AutoCloseable {
             }
             case CHAT -> {
                 Room room=roomOf(p);if(room.game!=null&&!room.game.canChat(p.name))throw new IllegalArgumentException("현재 채팅 불가");
-                if(m.field(0).isBlank()||m.field(0).length()>500)throw new IllegalArgumentException("채팅 길이 오류");room.broadcast(Message.of(MessageType.CHAT,p.name,m.field(0)));
+                if(m.field(0).isBlank()||m.field(0).length()>500)throw new IllegalArgumentException("채팅 길이 오류");room.broadcast(room.game!=null?room.game.chatMessage(p.name,m.field(0)):Message.of(MessageType.CHAT,p.name,m.field(0)));
             }
             default -> {Room room=roomOf(p);if(room.game==null)throw new IllegalArgumentException("진행 중인 게임 없음");room.game.onPlayerMessage(p.name,m);}
         }

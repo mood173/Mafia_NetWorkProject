@@ -39,6 +39,8 @@ public enum MessageType {
     PLAYER_DIED     (-1,   2),   // 닉네임, 원인 ATTACK / VOTE / DISCONNECT
     GAME_STATE      (-1,   3),   // 단계, 생존자 "a,b,...", 남은 시간 (직업 정보 없음)
     GAME_END        (-1,   2),   // 승리 팀, 직업 공개 "a:MAFIA,b:CITIZEN,..."
+    EVENT           (-1,   2),   // 사건 코드, 설명 "이름: 내용" (아침에 사건이 있는 날만)
+    VOTE_CAST       (-1,   2),   // 투표자, 대상 (기권이면 빈 값). 공개 투표 사건이 있는 날만
     ERROR           (-1,   3);   // 실패 사유, 거절된 요청 종류(없으면 빈 값), 사유 코드. Rejection으로만 만들고 읽는다
 
     private final int toServerFields;
