@@ -69,7 +69,12 @@ public final class ClientFlowChecks {
             check(ability.unlocked==1,"ability rejection unlocks ability");
             send(Rejection.of("이미 능력을 사용했습니다",MessageType.MAFIA_ATTACK,RejectCode.ALREADY_DONE).toMessage());
             check(ability.unlocked==1,"already-done rejection keeps lock");
-            send(Message.of(MessageType.PHASE_CHANGE,"VOTE","30"));snapshot("04-game");
+            // 사건: 아침에 받은 사건이 그날 표시되고, 공개 투표 알림은 화면을 바꾸지 않으며, 밤이 되면 지워진다
+            send(Message.of(MessageType.PHASE_CHANGE,"DAY_RESULT","5"));send(Message.of(MessageType.EVENT,"OPEN_VOTE","공개 투표: 오늘은 누가 누구에게 투표했는지 바로 공개됩니다."));
+            check(stream.current()==SceneId.GAME&&stream.state().todayEventName().equals("공개 투표"),"event shown for the day");
+            send(Message.of(MessageType.PHASE_CHANGE,"VOTE","30"));send(Message.of(MessageType.VOTE_CAST,"경탁","민준"));
+            check(stream.current()==SceneId.GAME&&!stream.state().todayEvent().isEmpty(),"open vote notice keeps game scene");snapshot("04-game");
+            send(Message.of(MessageType.PHASE_CHANGE,"NIGHT","30"));check(stream.state().todayEvent().isEmpty(),"event cleared at night");
             send(Message.of(MessageType.GAME_END,"CITIZEN","민준:MAFIA,경탁:POLICE,A:DOCTOR,B:CITIZEN,C:CITIZEN,D:CITIZEN"));
             check(stream.current()==SceneId.RESULT,"result entry");snapshot("05-result");
             send(Message.of(MessageType.ROOM_STATE,"1","연동 시연","PUBLIC","경탁","경탁:true"));

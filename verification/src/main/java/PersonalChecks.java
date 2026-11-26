@@ -4,12 +4,13 @@ import java.util.*;
 import com.mafia.common.model.*;
 import com.mafia.server.character.*;
 import com.mafia.server.game.*;
+import com.mafia.server.game.event.*;
 import com.mafia.server.engine.GameConfig;
 
 public final class PersonalChecks {
     static int checks;
     static void check(boolean ok,String label){checks++;if(!ok)throw new AssertionError(label);}
-    public static void main(String[] args){flow(); room(); night(); voting(); disconnect(); factory(); System.out.println("PASS personal checks: "+checks);}
+    public static void main(String[] args){flow(); room(); night(); voting(); disconnect(); factory(); events(); System.out.println("PASS personal checks: "+checks);}
 
     static void flow() {
         StreamManager f = new StreamManager();
@@ -64,11 +65,12 @@ public final class PersonalChecks {
         public void onPlayerLeft(String actor){}
     }
     record Fixture(GameSession game,Channel channel,Clock clock){}
-    static Fixture fixture(){
+    static Fixture fixture(){return fixture(EventDirector.none());}
+    static Fixture fixture(EventDirector events){
         Map<String,RoleAbility> roles=new LinkedHashMap<>();RoleName[] kinds={RoleName.MAFIA,RoleName.DOCTOR,RoleName.POLICE,RoleName.CITIZEN,RoleName.CITIZEN,RoleName.CITIZEN};
         for(int i=0;i<6;i++)roles.put("ABCDEF".substring(i,i+1),new StubRole(kinds[i]));
         Channel channel=new Channel();Clock clock=new Clock();FakeCharacters character=new FakeCharacters();
-        return new Fixture(new GameSession(channel,roles,character,clock,new PhaseTable(GameConfig.defaults()),new VoteCounter(),new WinChecker()),channel,clock); }
+        return new Fixture(new GameSession(channel,roles,character,clock,new PhaseTable(GameConfig.defaults()),new VoteCounter(),new WinChecker(),events),channel,clock); }
     static void finishNight(Fixture f){
         f.game.onPlayerMessage("A",Message.of(MessageType.MAFIA_ATTACK,"D"));
         f.game.onPlayerMessage("B",Message.of(MessageType.DOCTOR_HEAL,"B"));
@@ -120,5 +122,93 @@ public final class PersonalChecks {
         Channel channel=new Channel();GameSessionFactory factory=new GameSessionFactory(GameConfig.defaults(),catalog,FakeCharacters::new,new Clock(),new Random(7));
         factory.create(channel).start();check(channel.own.size()==6,"six assigned");
         check(channel.own.values().stream().flatMap(List::stream).filter(m->m.type()==MessageType.ROLE&&m.field(0).equals("MAFIA")).count()==1,"configured distribution");
+    }
+    /** 14주차: 그날의 사건. 아침에 하나 작동하고 밤에 풀리며, 사건마다 끼어드는 자리가 하나다. */
+    static void events(){
+        // 사건 없는 판에는 EVENT도 VOTE_CAST도 나가지 않는다
+        Fixture plain=fixture();plain.game.start();toVote(plain);abstainAll(plain);
+        check(count(plain,MessageType.EVENT)==0&&count(plain,MessageType.VOTE_CAST)==0,"no events without a deck");
+        check(talkSeconds(plain)==90,"talk time unchanged without event");
+
+        // 폭풍 → 공개 투표 순서의 덱: 하루에 하나씩, 덱이 비면 그만 나온다
+        Fixture f=fixture(EventDirector.inOrder(List.of(new StormEvent(),new OpenVoteEvent()),new Random(1)));
+        f.game.start();check(count(f,MessageType.EVENT)==0,"no event on the first night");
+        toVote(f);
+        check(count(f,MessageType.EVENT)==1&&last(f,MessageType.EVENT).field(0).equals("STORM"),"first morning draws the first event");
+        check(talkSeconds(f)==45,"storm halves talk time");
+        abstainAll(f);check(f.game.phase()==Phase.NIGHT&&count(f,MessageType.VOTE_CAST)==0,"storm day does not reveal votes");
+        toVote(f);
+        check(count(f,MessageType.EVENT)==2&&last(f,MessageType.EVENT).field(0).equals("OPEN_VOTE"),"second morning draws the next event");
+        check(talkSeconds(f)==90,"talk time is back after the storm day");
+        f.game.onPlayerMessage("B",Message.of(MessageType.VOTE,"B"));
+        check(count(f,MessageType.VOTE_CAST)==0,"rejected vote is not revealed");
+        f.game.onPlayerMessage("B",Message.of(MessageType.VOTE,"C"));
+        Message cast=last(f,MessageType.VOTE_CAST);
+        check(count(f,MessageType.VOTE_CAST)==1&&cast.field(0).equals("B")&&cast.field(1).equals("C"),"accepted vote is revealed to the room");
+        for(String voter:List.of("A","C","E","F"))f.game.onPlayerMessage(voter,Message.of(MessageType.VOTE,""));
+        check(f.game.phase()==Phase.NIGHT&&count(f,MessageType.VOTE_CAST)==5,"one reveal per accepted vote");
+        toVote(f);abstainAll(f);
+        check(count(f,MessageType.EVENT)==2&&count(f,MessageType.VOTE_CAST)==5,"no event after the deck is empty");
+
+        // 가면무도회: 그날 채팅만 이름이 가려지고 말끝이 붙는다
+        Fixture m=fixture(EventDirector.inOrder(List.of(new MasqueradeEvent()),new Random(1)));
+        m.game.start();
+        check(m.game.chatMessage("B","안녕").equals(Message.of(MessageType.CHAT,"B","안녕")),"chat is plain before the event");
+        toVote(m);Message masked=m.game.chatMessage("B","안녕");
+        check(masked.field(0).equals(MasqueradeEvent.MASKED_NAME)&&masked.field(1).equals("안녕"+MasqueradeEvent.TAIL),"masquerade hides the sender and adds a tail");
+        abstainAll(m);
+        check(m.game.chatMessage("B","안녕").field(0).equals("B"),"masquerade ends at night");
+
+        // 목격자: 시민 편 한 명에게만, 자기 자신도 마피아도 아닌 이름이 간다. 씨앗을 바꿔도 지켜진다
+        for(int seed=0;seed<20;seed++){
+            Fixture w=fixture(EventDirector.inOrder(List.of(new WitnessEvent()),new Random(seed)));
+            w.game.start();w.clock.fire();
+            List<Map.Entry<String,String>> hints=new ArrayList<>();
+            w.channel.own.forEach((player,list)->list.stream().filter(x->x.type()==MessageType.SYSTEM_CHAT&&x.field(0).contains(WitnessEvent.HINT_PREFIX))
+                    .forEach(x->hints.add(Map.entry(player,x.field(0)))));
+            boolean ok=hints.size()==1;
+            if(ok){
+                String witness=hints.get(0).getKey(),text=hints.get(0).getValue();
+                String named=text.substring(text.indexOf(WitnessEvent.HINT_PREFIX)+WitnessEvent.HINT_PREFIX.length(),text.indexOf("님은"));
+                ok=!witness.equals("A")&&!named.equals("A")&&!named.equals(witness)&&w.game.alive().contains(named)&&w.game.alive().contains(witness);
+            }
+            check(ok,"witness hint goes to one citizen and names another living citizen (seed "+seed+")");
+            check(w.channel.all.stream().noneMatch(x->x.type()==MessageType.SYSTEM_CHAT&&x.field(0).contains(WitnessEvent.HINT_PREFIX)),"witness hint is never broadcast");
+        }
+
+        // 판이 끝나면 사건을 꺼내지 않는다
+        Fixture over=fixture(EventDirector.inOrder(List.of(new StormEvent()),new Random(1)));
+        over.game.start();over.game.onPlayerLeft("A");
+        check(over.game.phase()==Phase.GAME_END&&count(over,MessageType.EVENT)==0,"no event when the game ends at night");
+
+        // 덱 만들기: 같은 씨앗이면 같은 순서, 한 판에 같은 사건은 한 번, 횟수는 0~3
+        check(drawAll(7).equals(drawAll(7)),"same seed gives the same order");
+        check(new HashSet<>(drawAll(7)).size()==3&&drawAll(7).size()==3,"no event repeats in one game");
+        check(EventDirector.shuffled(DayEvents.all(),0,new Random(1)).newDay().isEmpty(),"zero events means none");
+        boolean refused=false;try{EventDirector.shuffled(DayEvents.all(),4,new Random(1));}catch(IllegalArgumentException e){refused=true;}
+        check(refused,"more than three events is refused");
+
+        // 새 메시지는 줄로 바꿨다가 되읽어도 그대로다. 사건 설명은 구분 문자 없이 보낼 수 있는 글이다
+        MessageCodec codec=new MessageCodec();
+        for(DayEvent kind:DayEvents.all()){
+            Message event=Message.of(MessageType.EVENT,kind.code(),kind.description());
+            check(codec.decode(codec.encode(event),Direction.SERVER_TO_CLIENT).equals(event),"event round trip "+kind.code());
+        }
+        Message abstain=Message.of(MessageType.VOTE_CAST,"B","");
+        check(codec.decode(codec.encode(abstain),Direction.SERVER_TO_CLIENT).equals(abstain),"vote cast round trip with abstain");
+    }
+    /** 밤, 낮 결과, 토론을 시간 만료로 넘겨 투표 단계까지 간다. */
+    static void toVote(Fixture f){f.clock.fire();f.clock.fire();f.clock.fire();check(f.game.phase()==Phase.VOTE,"reached vote");}
+    static void abstainAll(Fixture f){for(String voter:new ArrayList<>(f.game.alive()))f.game.onPlayerMessage(voter,Message.of(MessageType.VOTE,""));}
+    static long count(Fixture f,MessageType type){return f.channel.all.stream().filter(x->x.type()==type).count();}
+    static Message last(Fixture f,MessageType type){Message found=null;for(Message x:f.channel.all)if(x.type()==type)found=x;return found;}
+    static int talkSeconds(Fixture f){
+        Message found=null;for(Message x:f.channel.all)if(x.type()==MessageType.PHASE_CHANGE&&x.field(0).equals("DAY_TALK"))found=x;
+        return Integer.parseInt(found.field(1));
+    }
+    static List<String> drawAll(long seed){
+        EventDirector deck=EventDirector.shuffled(DayEvents.all(),3,new Random(seed));List<String> codes=new ArrayList<>();
+        for(Optional<DayEvent> e=deck.newDay();e.isPresent();e=deck.newDay())codes.add(e.get().code());
+        return codes;
     }
 }
