@@ -142,7 +142,7 @@ public final class DemoServerMain implements AutoCloseable {
         int port=args.length>0?Integer.parseInt(args[0]):5000;GameConfig config=GameConfig.defaults();
         if(Arrays.asList(args).contains("--fast"))config=new GameConfig(port,6,12,2,12,10,config.roleCounts());
         DemoServerMain server=new DemoServerMain(port,config);Runtime.getRuntime().addShutdownHook(new Thread(server::close));
-        System.out.println("[AI 보험본 연동 시연] TCP 127.0.0.1:"+server.port()+" / 직업·네트워크·로비는 demo 참조 구현");
+        System.out.println("[연동 시연] TCP 127.0.0.1:"+server.port()+" / 직업·네트워크·로비는 demo 참조 구현");
         new CountDownLatch(1).await();
     }
 }
