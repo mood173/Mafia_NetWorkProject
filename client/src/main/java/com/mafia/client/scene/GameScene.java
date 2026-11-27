@@ -18,9 +18,15 @@ public final class GameScene implements Scene {
     public GameScene(ClientState state,Connection connection,PhaseBanner banner,VotePanel votes,AbilityView abilities,ChatView chat){
         this.state=state;this.banner=banner;this.votes=votes;this.abilities=abilities;this.chat=chat;
         panel.add(banner,BorderLayout.NORTH);panel.add(new JScrollPane(new JList<>(alive)),BorderLayout.WEST);
-        JPanel center=new JPanel(new BorderLayout());notice.setEditable(false);center.add(new JScrollPane(notice),BorderLayout.NORTH);center.add(chat.view());panel.add(center);
+        // 가운데는 게임 기록(서버 안내)과 채팅을 반반으로 나눈다. 게임 기록을 먼저 넣는다.
+        JPanel center=new JPanel(new GridLayout(1,2,10,0));notice.setEditable(false);notice.setLineWrap(true);notice.setWrapStyleWord(true);
+        center.add(titled("게임 기록",new JScrollPane(notice)));center.add(titled("채팅",chat.view()));panel.add(center);
         JPanel bottom=new JPanel();bottom.add(abilities.view());bottom.add(votes);JButton leave=new JButton("게임 나가기");bottom.add(leave);
         leave.addActionListener(e->connection.send(Message.of(MessageType.LEAVE_ROOM)));panel.add(bottom,BorderLayout.SOUTH);
+    }
+    /** 제목을 단 칸. 안쪽 부품은 가운데를 가득 채운다. */
+    private static JPanel titled(String title,JComponent body){
+        JPanel box=new JPanel(new BorderLayout(0,4));box.add(new JLabel(title),BorderLayout.NORTH);box.add(body);return box;
     }
     public JComponent view(){return panel;}
     public void onEnter(){notice.setText("");chat.reset();banner.start();render();}
