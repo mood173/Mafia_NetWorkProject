@@ -12,7 +12,7 @@ import com.mafia.server.net.Session;
 public final class PersonalChecks {
     static int checks;
     static void check(boolean ok,String label){checks++;if(!ok)throw new AssertionError(label);}
-    public static void main(String[] args){flow(); room(); night(); voting(); disconnect(); factory(); events(); roomEvents(); System.out.println("PASS personal checks: "+checks);}
+    public static void main(String[] args){flow(); room(); night(); voting(); disconnect(); factory(); events(); roomEvents(); targetLeft(); System.out.println("PASS personal checks: "+checks);}
 
     static void flow() {
         StreamManager f = new StreamManager();
@@ -258,5 +258,24 @@ public final class PersonalChecks {
         quiet.create(others.get(0),"조용한방","PUBLIC");for(int i=1;i<6;i++)quiet.join(others.get(i),"1");
         for(Member m:others)quiet.ready(m,"true");quietClock.fire();
         check(others.get(0).count(MessageType.EVENT)==0,"a room with no event count plays without events");
+    }
+    /** 14주차 버그 수정: 표나 능력의 대상이 나가면, 고른 사람에게 다시 고르라는 거절이 가서 버튼이 풀린다. */
+    static void targetLeft(){
+        // 밤: 마피아 A가 E를 고른 뒤 E가 나간다
+        Fixture f=fixture();f.game.start();
+        f.game.onPlayerMessage("A",Message.of(MessageType.MAFIA_ATTACK,"E"));
+        f.game.onPlayerLeft("E");
+        check(rejections(f,"A").stream().anyMatch(r->r.isAbout(MessageType.MAFIA_ATTACK)&&r.code()==RejectCode.INVALID_TARGET),"ability user is told to choose again when the target leaves");
+        check(rejections(f,"B").isEmpty(),"others get no retarget notice");
+        // 투표: B가 C를 찍은 뒤 C가 나간다. B는 다시 투표할 수 있다
+        Fixture g=fixture();g.game.start();toVote(g);
+        g.game.onPlayerMessage("B",Message.of(MessageType.VOTE,"C"));g.game.onPlayerLeft("C");
+        check(rejections(g,"B").stream().anyMatch(r->r.isAbout(MessageType.VOTE)&&r.code()==RejectCode.INVALID_TARGET),"voter is told to vote again when the target leaves");
+        int before=rejections(g,"B").size();g.game.onPlayerMessage("B",Message.of(MessageType.VOTE,"E"));
+        check(rejections(g,"B").size()==before,"the second vote is accepted");
+        // 나간 사람이 마피아라 판이 끝나면 다시 고르라는 알림은 보내지 않는다
+        Fixture h=fixture();h.game.start();toVote(h);
+        h.game.onPlayerMessage("B",Message.of(MessageType.VOTE,"A"));h.game.onPlayerLeft("A");
+        check(h.game.phase()==Phase.GAME_END&&rejections(h,"B").isEmpty(),"no retarget notice when the game ends");
     }
 }

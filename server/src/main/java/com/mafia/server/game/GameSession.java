@@ -36,6 +36,8 @@ public final class GameSession implements GameEventHandler {
     private final WinChecker winChecker;
     private final EventDirector events;
     private final Map<String, String> votes = new LinkedHashMap<>();
+    /** 이번 밤에 받아들여진 능력: 행동자 → (요청 종류, 대상). 대상이 나가면 행동자에게 다시 고르라고 알리는 데 쓴다. */
+    private final Map<String, Map.Entry<MessageType, String>> nightTargets = new LinkedHashMap<>();
 
     private Phase phase = Phase.WAITING;
     private PhaseTimer.Ticket phaseTimeout;
@@ -115,7 +117,10 @@ public final class GameSession implements GameEventHandler {
             deferringNightCompletion = false;
         }
         if (!result.accepted()) reject(actor, message.type(), result.code(), result.reason());
-        else notifyActor(actor, message.field(0) + "에게 능력을 사용했습니다.");
+        else {
+            nightTargets.put(actor, Map.entry(message.type(), message.field(0)));
+            notifyActor(actor, message.field(0) + "에게 능력을 사용했습니다.");
+        }
         runDeferredNightCompletion();
     }
 
@@ -157,8 +162,14 @@ public final class GameSession implements GameEventHandler {
     public synchronized void onPlayerLeft(String actor) {
         if (!started || phase == Phase.GAME_END || !alive.contains(actor)) return;
         markDead(actor, "DISCONNECT");
+        // 나간 사람을 고른 표와 능력은 무효가 된다. 고른 사람의 화면은 잠겨 있으므로, 판이 이어지면 다시 고르라고 알린다.
+        List<Map.Entry<String, MessageType>> retargets = new ArrayList<>();
         votes.remove(actor);
+        votes.forEach((voter, target) -> { if (target.equals(actor)) retargets.add(Map.entry(voter, MessageType.VOTE)); });
         votes.entrySet().removeIf(vote -> vote.getValue().equals(actor));
+        nightTargets.remove(actor);
+        nightTargets.forEach((user, action) -> { if (action.getValue().equals(actor)) retargets.add(Map.entry(user, action.getKey())); });
+        nightTargets.entrySet().removeIf(action -> action.getValue().getValue().equals(actor));
         // 안 낸 마지막 능력자가 나가면 캐릭터가 여기서 밤 마감을 요청한다.
         // 승패를 먼저 보고(마피아가 나갔으면 그대로 종료), 이어지는 판일 때만 밤을 마감한다.
         deferringNightCompletion = true;
@@ -171,6 +182,9 @@ public final class GameSession implements GameEventHandler {
             deferredNightCompletion = -1;
             return;
         }
+        // INVALID_TARGET 거절은 화면이 그 요청의 버튼만 다시 열게 한다. 새 메시지 없이 기존 거절 응답으로 알린다.
+        retargets.forEach(r -> reject(r.getKey(), r.getValue(), RejectCode.INVALID_TARGET,
+                actor + "님이 나가서 고른 대상이 사라졌습니다. 다시 고르세요"));
         runDeferredNightCompletion();
         if (phase == Phase.VOTE && hasEveryoneVoted()) {
             completePhase(phaseRevision, CompletionReason.ALL_VOTES_CAST);
@@ -236,6 +250,7 @@ public final class GameSession implements GameEventHandler {
         int seconds = events.seconds(next, phaseRules.get(next).seconds());
         phaseDeadlineNanos = timer.nowNanos() + seconds * 1_000_000_000L;
         if (next == Phase.VOTE) votes.clear();
+        if (next == Phase.NIGHT) nightTargets.clear();
         channel.broadcast(Message.of(MessageType.PHASE_CHANGE, next.name(), Integer.toString(seconds)));
         broadcastState();
         // 단계 안내는 단계를 바꾸는 이곳에서만 보낸다. 밤이 즉시 끝나는 경우에도 순서가 맞도록 타이머·밤 시작보다 먼저.
