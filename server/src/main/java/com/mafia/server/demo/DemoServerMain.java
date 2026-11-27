@@ -109,6 +109,7 @@ public final class DemoServerMain implements AutoCloseable {
                 Room room=rooms.values().stream().filter(r->r.privateRoom&&r.code.equals(m.field(0))).findFirst().orElseThrow(()->new IllegalArgumentException("입장 코드 오류"));join(p,room);
             }
             case LEAVE_ROOM -> leave(p,true);
+            case ROOM_EVENTS -> roomOf(p).broadcast(Message.of(MessageType.ROOM_EVENTS,"2")); // 시연 서버는 2번으로 고정
             case READY -> {
                 Room room=roomOf(p);if(room.game!=null)throw new IllegalArgumentException("이미 시작한 방: 로비에서 새 방을 생성하세요");
                 if(!m.field(0).equals("true")&&!m.field(0).equals("false"))throw new IllegalArgumentException("준비 값 오류");

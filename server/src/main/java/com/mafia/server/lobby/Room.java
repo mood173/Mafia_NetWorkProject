@@ -27,6 +27,7 @@ public final class Room implements RoomChannel {
     private final CopyOnWriteArrayList<Session> members = new CopyOnWriteArrayList<>();
     private final Map<String, Boolean> ready = new HashMap<>();
     private GameSession game;
+    private int eventCount; // 한 판의 사건 횟수. 방장이 대기방에서 정한다
 
     Room(int id, String title, boolean privateRoom, String code) {
         this.id = id;
@@ -50,6 +51,13 @@ public final class Room implements RoomChannel {
         members.remove(player);
         ready.remove(player.name());
     }
+
+    int eventCount() { return eventCount; }
+    void setEventCount(int count) { eventCount = count; }
+    String host() { return members.get(0).name(); }
+
+    /** ROOM_EVENTS: 이 방의 사건 횟수 */
+    Message events() { return Message.of(MessageType.ROOM_EVENTS, Integer.toString(eventCount)); }
 
     void setReady(String player, boolean value) { ready.put(player, value); }
 

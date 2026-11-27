@@ -24,6 +24,7 @@ public enum MessageType {
     PLAYER_JOIN     (-1,   1),   // 닉네임
     PLAYER_LEAVE    (-1,   1),   // 닉네임
     READY           ( 1,  -1),   // true 또는 false
+    ROOM_EVENTS     ( 1,   1),   // 한 판의 사건 횟수 0~3. 방장이 대기방에서 정하고, 서버가 방 전체에 알린다
     GAME_START      (-1,   1),   // 참가자 "a,b,c,..."
     ROLE            (-1,   1),   // 직업 (개인 메시지)
     PHASE_CHANGE    (-1,   2),   // 단계, 제한 시간(초)
