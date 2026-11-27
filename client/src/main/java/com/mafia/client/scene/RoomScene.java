@@ -1,6 +1,7 @@
 package com.mafia.client.scene;
 import com.mafia.client.net.Connection;
 import com.mafia.client.stream.*;
+import com.mafia.client.game.Words;
 import com.mafia.common.protocol.*;
 import javax.swing.*;
 import java.awt.*;
@@ -32,7 +33,12 @@ public final class RoomScene implements Scene {
         buttons.add(status);
         ready.addActionListener(e->connection.send(Message.of(MessageType.READY,Boolean.toString(!state.ready().getOrDefault(state.myName(),false)))));
         leave.addActionListener(e->connection.send(Message.of(MessageType.LEAVE_ROOM)));
-        panel.add(title,BorderLayout.NORTH);panel.add(new JScrollPane(people));panel.add(buttons,BorderLayout.SOUTH);
+        // 오른쪽: 어떤 사건이 뜰 수 있는지 안내. 종류와 순서는 서버가 무작위로 정한다.
+        JTextArea guide=new JTextArea();guide.setEditable(false);guide.setLineWrap(true);guide.setWrapStyleWord(true);guide.setOpaque(false);
+        guide.setText("아침마다 아래 사건 가운데 하나가 무작위로 뜹니다. 한 판에 몇 번 뜰지는 방장이 정합니다.\n\n"+String.join("\n\n",Words.EVENT_GUIDE));
+        JPanel events=new JPanel(new BorderLayout(0,6));events.add(new JLabel("사건 종류"),BorderLayout.NORTH);events.add(guide);
+        events.setPreferredSize(new Dimension(280,0));
+        panel.add(title,BorderLayout.NORTH);panel.add(new JScrollPane(people));panel.add(events,BorderLayout.EAST);panel.add(buttons,BorderLayout.SOUTH);
     }
     private void render(){
         title.setText("방 "+state.roomId()+" / "+state.roomName()+" / 방장 "+state.host()+" / 코드 "+state.roomCode()+" / 사건 "+state.roomEvents()+"번");

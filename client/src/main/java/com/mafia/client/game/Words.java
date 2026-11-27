@@ -45,6 +45,16 @@ public final class Words {
         };
     }
 
+    /**
+     * 대기실에 보여 줄 사건 종류와 효과. 서버의 사건 목록(DayEvents)과 같은 내용이다.
+     * 어떤 사건이 뜰지는 서버가 정하므로 화면은 안내만 한다.
+     */
+    public static final java.util.List<String> EVENT_GUIDE = java.util.List.of(
+            "폭풍: 그날 토론 시간이 절반으로 줄어듭니다.",
+            "가면무도회: 그날 채팅은 누가 말했는지 가려집니다.",
+            "공개 투표: 그날 표가 들어올 때마다 누가 누구를 찍었는지 공개됩니다.",
+            "목격자: 시민 한 명에게만 마피아가 아닌 사람 한 명을 알려 줍니다.");
+
     /** 서버 안내 앞의 "[SYSTEM]: "는 게임 기록 칸에서는 떼고 보인다. */
     public static String notice(String text) {
         return text.startsWith("[SYSTEM]: ") ? text.substring("[SYSTEM]: ".length()) : text;
