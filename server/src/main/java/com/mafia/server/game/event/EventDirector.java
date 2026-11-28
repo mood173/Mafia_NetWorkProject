@@ -45,6 +45,7 @@ public final class EventDirector {
         if (count < 0 || count > MAX_EVENTS) {
             throw new IllegalArgumentException("사건 횟수는 0~" + MAX_EVENTS + "입니다");
         }
+        if (count == 0) return new EventDirector(List.of(), random); // 사건 없는 판은 무작위 값을 쓰지 않는다
         List<DayEvent> order = new ArrayList<>(kinds);
         Collections.shuffle(order, random);
         return new EventDirector(order.subList(0, Math.min(count, order.size())), random);

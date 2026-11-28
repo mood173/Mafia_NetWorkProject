@@ -7,7 +7,7 @@ import javax.swing.SwingUtilities;
 
 /**
  * 서버 없이 화면 흐름을 시험하는 가짜 연결. LOGIN 에는 LOGIN_OK 로 답한다.
- * 진짜 SocketConnection 이 생기면 ClientMain 에서 한 줄만 바꾼다.
+ * 클라이언트를 --offline으로 켜면 SocketConnection 대신 이것을 쓴다.
  */
 public final class OfflineConnection implements Connection {
 

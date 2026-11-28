@@ -3,11 +3,12 @@ import com.mafia.common.model.Phase;
 import com.mafia.common.protocol.Message;
 import java.util.*;
 
-/** 서버 메시지의 화면용 투영. Scene은 읽기만 한다. */
+/** 서버 메시지에서 화면에 필요한 값만 모아 둔 곳. 화면은 읽기만 하고 고치지 않는다. */
 public final class ClientState {
     private String myName="",myRole="",roomId="",roomName="",host="",roomCode="",winner="",reveal="",todayEvent="";
     private Phase phase=Phase.WAITING;
     private long deadline;
+    private int roomEvents;
     private final List<String> participants=new ArrayList<>();
     private final List<String> alive=new ArrayList<>();
     private final Map<String,Boolean> ready=new LinkedHashMap<>();
@@ -24,6 +25,7 @@ public final class ClientState {
                 }
             }
             case ROOM_CODE -> roomCode=m.field(0);
+            case ROOM_EVENTS -> roomEvents=Integer.parseInt(m.field(0));
             case GAME_START -> {
                 clearGame();
                 if(!m.field(0).isEmpty()){
@@ -51,7 +53,7 @@ public final class ClientState {
         phase=next; deadline=System.nanoTime()+duration*1_000_000_000L;
     }
     private void clearGame() { myRole=""; participants.clear(); alive.clear(); phase=Phase.WAITING; deadline=0; winner=""; reveal=""; todayEvent=""; }
-    private void clearRoom() { roomId=""; roomName=""; host=""; roomCode=""; ready.clear(); clearGame(); }
+    private void clearRoom() { roomId=""; roomName=""; host=""; roomCode=""; roomEvents=0; ready.clear(); clearGame(); }
     public void reset() { myName=""; clearRoom(); }
     public String myName(){return myName;} public String myRole(){return myRole;}
     public Phase phase(){return phase;} public List<String> participants(){return List.copyOf(participants);}
@@ -64,6 +66,8 @@ public final class ClientState {
     public String todayEvent(){return todayEvent;}
     /** 사건 설명의 이름 부분. */
     public String todayEventName(){int cut=todayEvent.indexOf(':');return cut<0?todayEvent:todayEvent.substring(0,cut);}
+    /** 이 방에서 한 판에 뜨는 사건 횟수. 방장이 정한다. */
+    public int roomEvents(){return roomEvents;}
     public String winner(){return winner;} public String reveal(){return reveal;}
     public int remainingSeconds(){return phase==Phase.GAME_END || deadline==0 ? 0 : (int)Math.max(0,(deadline-System.nanoTime()+999_999_999L)/1_000_000_000L);}
 }

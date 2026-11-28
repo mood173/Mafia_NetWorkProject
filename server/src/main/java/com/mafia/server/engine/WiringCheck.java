@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * 시작 검사. 등록이 빠진 채로 서버가 뜨면 게임 도중에야 터지므로, 시작할 때 미리 확인한다.
- * 뼈대 단계에서는 report()로 남은 일 목록을 보고, 다 채워지면 ServerMain을 orFail()로 바꾼다.
+ * ServerMain은 orFail()로 검사해서, 빠진 처리기가 있으면 서버를 켜지 않는다.
  */
 public final class WiringCheck {
 

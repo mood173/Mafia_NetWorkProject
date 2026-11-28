@@ -7,7 +7,7 @@ import com.mafia.common.protocol.Message;
  * 서버 응답을 앱 화면 상태와 게임 단계 표시로 옮기는 클라이언트 관리자.
  * 규칙/승패/시간 만료는 서버 GameSession이 판정한다.
  * 실제 Swing 화면 전환은 GameStream이 수행한다.
- * 여기서 게임 단계별로 잡앋누 구조대로 게임 흐름ㄱ ㅘㄴ리
+ * 화면 흐름(AppStream)과 게임 단계(gameStream)를 나눠 두고, 서버 응답에 따라 각각 바꾼다.
  */
 public final class StreamManager {
     private AppStream appState = AppStream.main;

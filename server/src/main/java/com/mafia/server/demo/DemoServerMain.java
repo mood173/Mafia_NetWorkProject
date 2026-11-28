@@ -13,8 +13,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
- * 실제 TCP를 사용하는 별도 연동 시연 어댑터.
- * Lobby/Socket/Chat/Character는 팀원 구현을 기다리는 참조 구현이며 개인 담당과 분리한다.
+ * 실제 TCP로 도는 시연용 서버. 로비와 직업을 간단히 직접 구현해, 정식 서버 없이도 판 진행과 사건을 시험할 수 있다.
+ * 실제 서버는 ServerMain이다.
  */
 public final class DemoServerMain implements AutoCloseable {
     private final ServerSocket server;
@@ -109,6 +109,7 @@ public final class DemoServerMain implements AutoCloseable {
                 Room room=rooms.values().stream().filter(r->r.privateRoom&&r.code.equals(m.field(0))).findFirst().orElseThrow(()->new IllegalArgumentException("입장 코드 오류"));join(p,room);
             }
             case LEAVE_ROOM -> leave(p,true);
+            case ROOM_EVENTS -> roomOf(p).broadcast(Message.of(MessageType.ROOM_EVENTS,"2")); // 시연 서버는 2번으로 고정
             case READY -> {
                 Room room=roomOf(p);if(room.game!=null)throw new IllegalArgumentException("이미 시작한 방: 로비에서 새 방을 생성하세요");
                 if(!m.field(0).equals("true")&&!m.field(0).equals("false"))throw new IllegalArgumentException("준비 값 오류");

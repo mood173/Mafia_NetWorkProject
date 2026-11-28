@@ -7,7 +7,7 @@ import com.mafia.client.demo.*;
 import com.mafia.common.protocol.MessageCodec;
 import javax.swing.*;
 
-/** 조립 지점. 실제 Socket 통신이 기본이며 --offline만 이전 LOGIN 가짜 연결을 쓴다. */
+/** 클라이언트를 켜는 곳. 화면 다섯 개를 등록하고 서버 연결을 붙인다. --offline으로 켜면 서버 없이 화면만 시험한다. */
 public final class ClientMain {
     public static void main(String[] args){SwingUtilities.invokeLater(()->assemble(args));}
     private static void assemble(String[] args){

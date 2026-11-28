@@ -12,8 +12,8 @@ import javax.swing.JTextArea;
 import java.awt.BorderLayout;
 
 /**
- * 아직 만들지 않은 씬 자리. 받은 메시지를 그대로 찍어서 흐름만 확인한다.
- * LobbyScene, RoomScene, GameScene, ResultScene 을 만들면 ClientMain 에서 바꿔 끼운다.
+ * 화면을 만들기 전에 메시지 흐름만 확인하던 임시 화면. 받은 메시지를 그대로 찍는다.
+ * 지금은 다섯 화면이 모두 있어서 쓰지 않는다.
  */
 public final class PlaceholderScene implements Scene {
 

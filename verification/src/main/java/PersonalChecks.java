@@ -6,11 +6,13 @@ import com.mafia.server.character.*;
 import com.mafia.server.game.*;
 import com.mafia.server.game.event.*;
 import com.mafia.server.engine.GameConfig;
+import com.mafia.server.lobby.*;
+import com.mafia.server.net.Session;
 
 public final class PersonalChecks {
     static int checks;
     static void check(boolean ok,String label){checks++;if(!ok)throw new AssertionError(label);}
-    public static void main(String[] args){flow(); room(); night(); voting(); disconnect(); factory(); events(); System.out.println("PASS personal checks: "+checks);}
+    public static void main(String[] args){flow(); room(); night(); voting(); disconnect(); factory(); events(); roomEvents(); targetLeft(); System.out.println("PASS personal checks: "+checks);}
 
     static void flow() {
         StreamManager f = new StreamManager();
@@ -210,5 +212,70 @@ public final class PersonalChecks {
         EventDirector deck=EventDirector.shuffled(DayEvents.all(),3,new Random(seed));List<String> codes=new ArrayList<>();
         for(Optional<DayEvent> e=deck.newDay();e.isPresent();e=deck.newDay())codes.add(e.get().code());
         return codes;
+    }
+    /** 방 안의 한 사람. 받은 메시지를 모아 둔다. */
+    static final class Member implements Session {
+        final String name;final List<Message> got=new ArrayList<>();
+        Member(String name){this.name=name;}
+        public String name(){return name;}public void send(Message m){got.add(m);}
+        long count(MessageType type){return got.stream().filter(x->x.type()==type).count();}
+        Message last(MessageType type){Message found=null;for(Message x:got)if(x.type()==type)found=x;return found;}
+    }
+    static boolean refused(Runnable request){try{request.run();return false;}catch(IllegalArgumentException e){return true;}}
+    /** 14주차: 방장이 대기방에서 정한 사건 횟수가 방 전체에 전달되고, 그 횟수로 판이 만들어진다. */
+    static void roomEvents(){
+        Map<RoleName,RoleAbility> catalog=new EnumMap<>(RoleName.class);for(RoleName name:RoleName.values())catalog.put(name,new StubRole(name));
+        Clock clock=new Clock();
+        RoomService rooms=new RoomService(GameConfig.defaults(),new GameSessionFactory(GameConfig.defaults(),catalog,FakeCharacters::new,clock,new Random(3)),new RoomRegistry(new Random(3)));
+        List<Member> people=new ArrayList<>();for(String name:List.of("a","b","c","d","e","f"))people.add(new Member(name));
+        Member host=people.get(0),second=people.get(1);
+        rooms.create(host,"사건방","PUBLIC");
+        check(host.count(MessageType.ROOM_EVENTS)==0,"no event count notice for the default");
+        rooms.join(second,"1");
+        check(second.count(MessageType.ROOM_EVENTS)==0,"joiner hears nothing while the count is zero");
+        check(refused(()->rooms.events(second,"2")),"only the host sets the event count");
+        check(refused(()->rooms.events(host,"4"))&&refused(()->rooms.events(host,"-1"))&&refused(()->rooms.events(host,"두번")),"event count must be 0 to 3");
+        rooms.events(host,"2");
+        check(host.last(MessageType.ROOM_EVENTS).field(0).equals("2")&&second.last(MessageType.ROOM_EVENTS).field(0).equals("2"),"event count is announced to the room");
+        for(int i=2;i<6;i++)rooms.join(people.get(i),"1");
+        check(people.get(5).last(MessageType.ROOM_EVENTS).field(0).equals("2"),"late joiner learns the event count");
+        for(Member m:people)rooms.ready(m,"true");
+        check(host.count(MessageType.GAME_START)==1,"game starts when six are ready");
+        check(refused(()->rooms.events(host,"1")),"event count is fixed once the game starts");
+        clock.fire();
+        check(host.count(MessageType.EVENT)==1&&people.get(5).count(MessageType.EVENT)==1,"the room's event count reaches the game");
+        // 진행 중 채팅은 판을 거쳐 나간다. 토론 단계까지 가서 한 줄을 보내 본다
+        clock.fire();
+        Member alive=null;for(Member m:people)if(alive==null&&!refused(()->rooms.chat(m,"안녕")))alive=m;
+        Message chat=host.last(MessageType.CHAT);
+        boolean masked=host.last(MessageType.EVENT).field(0).equals("MASQUERADE");
+        check(alive!=null&&chat!=null&&chat.field(0).equals(masked?MasqueradeEvent.MASKED_NAME:alive.name),"in-game chat goes through the game session");
+
+        // 횟수를 정하지 않은 방은 사건 없이 진행된다
+        Clock quietClock=new Clock();
+        RoomService quiet=new RoomService(GameConfig.defaults(),new GameSessionFactory(GameConfig.defaults(),catalog,FakeCharacters::new,quietClock,new Random(3)),new RoomRegistry(new Random(3)));
+        List<Member> others=new ArrayList<>();for(String name:List.of("a","b","c","d","e","f"))others.add(new Member(name));
+        quiet.create(others.get(0),"조용한방","PUBLIC");for(int i=1;i<6;i++)quiet.join(others.get(i),"1");
+        for(Member m:others)quiet.ready(m,"true");quietClock.fire();
+        check(others.get(0).count(MessageType.EVENT)==0,"a room with no event count plays without events");
+    }
+    /** 14주차 버그 수정: 표나 능력의 대상이 나가면, 고른 사람에게 다시 고르라는 거절이 가서 버튼이 풀린다. */
+    static void targetLeft(){
+        // 밤: 마피아 A가 E를 고른 뒤 E가 나간다
+        Fixture f=fixture();f.game.start();
+        f.game.onPlayerMessage("A",Message.of(MessageType.MAFIA_ATTACK,"E"));
+        f.game.onPlayerLeft("E");
+        check(rejections(f,"A").stream().anyMatch(r->r.isAbout(MessageType.MAFIA_ATTACK)&&r.code()==RejectCode.INVALID_TARGET),"ability user is told to choose again when the target leaves");
+        check(rejections(f,"B").isEmpty(),"others get no retarget notice");
+        // 투표: B가 C를 찍은 뒤 C가 나간다. B는 다시 투표할 수 있다
+        Fixture g=fixture();g.game.start();toVote(g);
+        g.game.onPlayerMessage("B",Message.of(MessageType.VOTE,"C"));g.game.onPlayerLeft("C");
+        check(rejections(g,"B").stream().anyMatch(r->r.isAbout(MessageType.VOTE)&&r.code()==RejectCode.INVALID_TARGET),"voter is told to vote again when the target leaves");
+        int before=rejections(g,"B").size();g.game.onPlayerMessage("B",Message.of(MessageType.VOTE,"E"));
+        check(rejections(g,"B").size()==before,"the second vote is accepted");
+        // 나간 사람이 마피아라 판이 끝나면 다시 고르라는 알림은 보내지 않는다
+        Fixture h=fixture();h.game.start();toVote(h);
+        h.game.onPlayerMessage("B",Message.of(MessageType.VOTE,"A"));h.game.onPlayerLeft("A");
+        check(h.game.phase()==Phase.GAME_END&&rejections(h,"B").isEmpty(),"no retarget notice when the game ends");
     }
 }

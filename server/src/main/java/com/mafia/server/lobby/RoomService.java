@@ -6,6 +6,7 @@ import com.mafia.server.engine.GameConfig;
 import com.mafia.server.game.GameEventHandler;
 import com.mafia.server.game.GameSession;
 import com.mafia.server.game.GameSessionFactory;
+import com.mafia.server.game.event.EventDirector;
 import com.mafia.server.net.Session;
 
 import java.util.Locale;
@@ -88,7 +89,9 @@ public final class RoomService {
             throw new IllegalArgumentException("채팅은 1~" + MAX_CHAT_LENGTH + "자입니다");
         if (room.inProgress() && !room.game().canChat(from.name()))
             throw new IllegalArgumentException("지금은 채팅할 수 없습니다 (생존자만 낮 토론·투표 중 가능)");
-        room.broadcast(Message.of(MessageType.CHAT, from.name(), text));
+        // 진행 중이면 그날의 사건이 전달 모양을 바꿀 수 있으므로 판에게 묻는다 (가면무도회)
+        room.broadcast(room.inProgress() ? room.game().chatMessage(from.name(), text)
+                : Message.of(MessageType.CHAT, from.name(), text));
     }
 
     public synchronized void ready(Session from, String value) {
@@ -99,10 +102,25 @@ public final class RoomService {
         room.setReady(from.name(), Boolean.parseBoolean(value));
         room.broadcast(room.state());
         if (room.size() == config.roomCapacity() && room.allReady()) {
-            GameSession game = games.create(room);
+            GameSession game = games.create(room, room.eventCount());
             room.startGame(game);
             game.start();
         }
+    }
+
+    /** 방장이 대기방에서 한 판의 사건 횟수를 정한다. 방 전체에 알린다. */
+    public synchronized void events(Session from, String value) {
+        Room room = roomOf(from);
+        room.resetIfFinished();
+        if (room.game() != null) throw new IllegalArgumentException("게임이 진행 중인 방입니다");
+        if (!room.host().equals(from.name())) throw new IllegalArgumentException("사건 횟수는 방장만 정할 수 있습니다");
+        int count;
+        try { count = Integer.parseInt(value); }
+        catch (NumberFormatException e) { count = -1; }
+        if (count < 0 || count > EventDirector.MAX_EVENTS)
+            throw new IllegalArgumentException("사건 횟수는 0~" + EventDirector.MAX_EVENTS + "입니다");
+        room.setEventCount(count);
+        room.broadcast(room.events());
     }
 
     /** 이 참가자가 속한 방의 판. 없으면 null. 게임 명령 핸들러가 쓴다. */
@@ -127,6 +145,8 @@ public final class RoomService {
         registry.enter(player.name(), room);
         room.broadcast(Message.of(MessageType.PLAYER_JOIN, player.name()));
         room.broadcast(room.state());
+        // 늦게 들어온 사람도 방장이 정해 둔 사건 횟수를 알게 한다. 0이면 기본값이라 보내지 않는다.
+        if (room.eventCount() > 0) player.send(room.events());
     }
 
     /** 방에서 내보낸다. 방에 없었으면 false. */

@@ -8,7 +8,7 @@ import com.mafia.server.engine.MessageRouter;
 
 import java.util.Objects;
 
-/** 로비·대기방 메시지 6종과 방 채팅을 RoomService에 연결한다. 규칙 위반은 요청한 사람에게 ERROR로 돌려준다. */
+/** 로비·대기방 메시지 7종과 방 채팅을 RoomService에 연결한다. 규칙 위반은 요청한 사람에게 ERROR로 돌려준다. */
 public final class LobbyHandlers {
     private LobbyHandlers() {
     }
@@ -20,6 +20,7 @@ public final class LobbyHandlers {
         router.register(MessageType.JOIN_PRIVATE, guarded((from, m) -> rooms.joinPrivate(from, m.field(0))));
         router.register(MessageType.LEAVE_ROOM, guarded((from, m) -> rooms.leave(from)));
         router.register(MessageType.READY, guarded((from, m) -> rooms.ready(from, m.field(0))));
+        router.register(MessageType.ROOM_EVENTS, guarded((from, m) -> rooms.events(from, m.field(0))));
         router.register(MessageType.CHAT, guarded((from, m) -> rooms.chat(from, m.field(0))));
     }
 
