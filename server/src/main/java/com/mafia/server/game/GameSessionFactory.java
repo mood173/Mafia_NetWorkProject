@@ -8,6 +8,11 @@ import com.mafia.server.game.event.DayEvents;
 import com.mafia.server.game.event.EventDirector;
 import java.util.*;
 import java.util.function.Supplier;
+/**
+ * 판을 만드는 곳. 6명에게 설정대로 직업을 무작위로 나눠 주고, 방이 정한 횟수만큼 사건 덱을 만든 뒤
+ * GameSession에 필요한 부품(단계표, 투표 집계, 승패 판정, 시계)을 넣어 준다.
+ * 무작위 값을 밖에서 받아서, 검사할 때는 씨앗을 고정해 같은 결과를 얻는다.
+ */
 public final class GameSessionFactory {
     private final GameConfig config;
     private final Map<RoleName,RoleAbility> catalog;
@@ -42,5 +47,4 @@ public final class GameSessionFactory {
         return new GameSession(channel,assigned,characters.get(),timer,new PhaseTable(config),new VoteCounter(),new WinChecker(),
                 EventDirector.shuffled(eventKinds,events,random));
     }
-    //RoomChannel channel, Map<String, RoleAbility> roles, CharacterService characters, PhaseTimer timer,PhaseTable phaseRules, VoteCounter voteCounter, WinChecker winChecker -> 페이지 테이블 위후로 투표 기능과 투표대상에 대한 기능 결합에서 문제
 }

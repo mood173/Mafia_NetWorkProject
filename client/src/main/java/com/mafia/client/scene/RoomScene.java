@@ -5,6 +5,10 @@ import com.mafia.client.game.Words;
 import com.mafia.common.protocol.*;
 import javax.swing.*;
 import java.awt.*;
+/**
+ * 대기실 화면: 참가자와 준비 상태, 준비 버튼, 사건 횟수(방장만), 사건 종류 안내.
+ * 사건 횟수를 고르면 요청만 보내고, 표시는 서버가 ROOM_EVENTS로 알려 준 값을 따른다.
+ */
 public final class RoomScene implements Scene {
     private final ClientState state;
     private final JPanel panel=new JPanel(new BorderLayout(10,10));
@@ -41,7 +45,7 @@ public final class RoomScene implements Scene {
         panel.add(title,BorderLayout.NORTH);panel.add(new JScrollPane(people));panel.add(events,BorderLayout.EAST);panel.add(buttons,BorderLayout.SOUTH);
     }
     private void render(){
-        title.setText("방 "+state.roomId()+" / "+state.roomName()+" / 방장 "+state.host()+" / 코드 "+state.roomCode()+" / 사건 "+state.roomEvents()+"번");
+        title.setText("방 "+state.roomId()+" / "+state.roomName()+" / 방장 "+state.host()+(state.roomCode().isEmpty()?"":" / 코드 "+state.roomCode())+" / 사건 "+state.roomEvents()+"번");
         boolean host=state.host().equals(state.myName());
         for(int i=0;i<events.length;i++){events[i].setSelected(i==state.roomEvents());events[i].setEnabled(host);}
         people.setText("");state.ready().forEach((name,r)->people.append(name+" : "+(r?"준비 완료":"대기")+"\n"));

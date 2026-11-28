@@ -1,7 +1,10 @@
 package com.mafia.server.character;
 import java.util.Map;
 import java.util.Set;
-/** 공동 계약. 판은 시점/생존, 캐릭터는 능력 유효성/결과 계산을 책임진다. */
+/**
+ * 판과 밤 능력 처리 사이의 약속(두 사람이 같이 정함).
+ * 판은 지금 밤인지와 살아 있는지를 보고, 이쪽은 그 직업이 그 대상에게 능력을 쓸 수 있는지와 밤 결과를 정한다.
+ */
 public interface CharacterService {
     void beginNight(Set<String> alive, Map<String,RoleAbility> roles, Runnable onAllSubmitted);
     SubmitResult submit(String actor, NightAction action);

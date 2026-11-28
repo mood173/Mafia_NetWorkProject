@@ -3,7 +3,7 @@ import com.mafia.common.protocol.*;
 import com.mafia.server.engine.MessageHandler;
 import com.mafia.server.net.Session;
 import java.util.function.Function;
-/** 경탁의 RoomRegistry 조회 함수를 조립 지점에서 주입한다. */
+/** 게임 요청(능력, 투표)을 보낸 사람이 속한 방의 판으로 넘긴다. 방을 찾는 방법은 ServerMain에서 넣어 준다. */
 public final class GameMessageHandler implements MessageHandler {
     private final Function<String,GameEventHandler> games;
     public GameMessageHandler(Function<String,GameEventHandler> games) { this.games=games; }

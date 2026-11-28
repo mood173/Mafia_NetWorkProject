@@ -5,6 +5,10 @@ import com.mafia.common.protocol.*;
 import javax.swing.*;
 import java.awt.*;
 
+/**
+ * 로비 화면: 공개방 목록, 방 만들기, 공개방 입장, 입장 코드로 비공개방 입장.
+ * 버튼은 요청만 보낸다. 대기실로 넘어가는 것은 서버가 ROOM_STATE를 보냈을 때다.
+ */
 public final class LobbyScene implements Scene {
     private final Connection connection;
     private final JPanel panel=new JPanel(new BorderLayout(10,10));

@@ -14,12 +14,13 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 한 판의 서버 측 상태 소유자이자 진행자.
- * 입력: 사용자 커맨드, 시간 만료, 전원 제출, 접속 끊김.
- * 규칙 조회: PhaseTable / VoteCounter / WinChecker / CharacterService.
- * 그날의 사건(EventDirector)은 단계 시간, 채팅 전달 모양, 표 접수 알림에만 끼어든다.
- * 상태 변경: 생존자는 markDead(), 단계는 transitionTo()에서만 변경한다.
- * 결과는 RoomChannel로 알린다. Socket과 Swing은 모른다.
+ * 한 판을 진행한다. 단계 전환, 투표 접수, 사망 처리, 승패 확인이 모두 여기서 일어난다.
+ * 판을 움직이는 것은 네 가지다: 플레이어의 요청, 시간 만료, 전원 제출, 접속 이탈.
+ * 규칙은 따로 둔 클래스에 묻는다. 단계는 PhaseTable, 집계는 VoteCounter, 승패는 WinChecker,
+ * 밤 능력은 CharacterService가 정한다. 그날의 사건(EventDirector)은 단계 시간, 채팅 전달 모양,
+ * 표 접수 알림에만 끼어든다.
+ * 생존자는 markDead()에서만, 단계는 transitionTo()에서만 바꾼다.
+ * 결과는 RoomChannel로 방에 보낼 뿐이고, 소켓과 화면은 모른다.
  */
 public final class GameSession implements GameEventHandler {
     private enum CompletionReason {
@@ -153,7 +154,7 @@ public final class GameSession implements GameEventHandler {
         if (hasEveryoneVoted()) completePhase(phaseRevision, CompletionReason.ALL_VOTES_CAST);
     }
 
-    /** 조회: 조건만 반환하며 단계 전환/송신을 하지 않는다. */
+    /** 살아 있는 사람이 모두 투표했는지만 본다. */
     private boolean hasEveryoneVoted() {
         return votes.keySet().containsAll(alive);
     }
@@ -191,7 +192,10 @@ public final class GameSession implements GameEventHandler {
         }
     }
 
-    /** 시간 만료/전원 제출 이벤트가 들어오는 단계 마감의 단일 진입점. */
+    /**
+     * 단계를 끝내는 곳은 여기 하나다. 시간 만료와 전원 제출이 모두 이리로 들어온다.
+     * 신호에 실려 온 단계 번호가 지금 번호와 다르면 이미 지난 단계의 신호이므로 버린다.
+     */
     private synchronized void completePhase(long expectedRevision, CompletionReason reason) {
         if (!started || phase == Phase.GAME_END || expectedRevision != phaseRevision) return;
         if (!isCompletionReasonValid(reason)) return;
@@ -239,7 +243,7 @@ public final class GameSession implements GameEventHandler {
         if (!finishGameIfWon()) transitionTo(phaseRules.get(Phase.VOTE).next());
     }
 
-    /** 명령: 실제 단계 변경, 공지, 이전 타이머 정리와 다음 타이머 예약. */
+    /** 단계를 바꾼다. 이전 타이머를 끄고 단계 번호를 올린 뒤, 방에 알리고 다음 타이머를 건다. */
     private void transitionTo(Phase next) {
         cancelPhaseTimeout();
         phase = next;
@@ -266,7 +270,7 @@ public final class GameSession implements GameEventHandler {
         }
     }
 
-    /** 명령: 승자가 있으면 실제로 종료하며, 반환값은 '이미 종료했는지'다. */
+    /** 승패가 났으면 게임을 끝내고 전원의 직업을 공개한다. 끝냈으면 true. */
     private boolean finishGameIfWon() {
         // 승리 조건 계산만 하는 조회 책임은 WinChecker.winner()에 있다.
         var winner = winChecker.winner(alive.stream().map(name -> roles.get(name).team()).toList());

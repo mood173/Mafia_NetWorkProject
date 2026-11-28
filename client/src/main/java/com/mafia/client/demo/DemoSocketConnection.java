@@ -6,7 +6,7 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.*;
 
-/** 시연용 전송 어댑터. 경탁의 Connection 구현으로 교체할 수 있다. */
+/** 시연 화면에서 쓰던 연결. 지금 클라이언트는 SocketConnection을 쓰며 이 클래스는 쓰지 않는다. */
 public final class DemoSocketConnection implements Connection {
     private final MessageCodec codec;
     private final ExecutorService sender=Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"demo-client-send");t.setDaemon(true);return t;});

@@ -2,7 +2,7 @@ package com.mafia.server.demo;
 import com.mafia.server.character.*;
 import java.util.*;
 
-/** 밤 종료 때 조사 통보, 마감 전 퇴장 행동 무효를 가정한 연동용 구현. */
+/** 시연 서버용 밤 능력 처리. 실제 서버는 DefaultCharacterService를 쓴다. */
 public final class DemoCharacterService implements CharacterService {
     private Set<String> alive=new HashSet<>();private Map<String,RoleAbility> roles=Map.of();
     private final Map<String,NightAction> actions=new HashMap<>();private Runnable completed=()->{};private boolean closed=true;

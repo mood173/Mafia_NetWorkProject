@@ -5,6 +5,10 @@ import com.mafia.client.game.Words;
 import com.mafia.common.protocol.*;
 import javax.swing.*;
 import java.awt.*;
+/**
+ * 결과 화면: 이긴 편과 전원의 직업을 보인다.
+ * "대기방으로 돌아가기"는 누른 사람만 대기실로 옮긴다. 다른 사람이 다시 준비해도 내 결과 화면은 닫히지 않는다.
+ */
 public final class ResultScene implements Scene {
     private final JPanel panel=new JPanel(new BorderLayout());private final JLabel result=new JLabel();
     private final JTextArea roles=new JTextArea();private final ClientState state;

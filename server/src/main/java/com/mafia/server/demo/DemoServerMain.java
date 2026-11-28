@@ -13,8 +13,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
- * 실제 TCP를 사용하는 별도 연동 시연 어댑터.
- * Lobby/Socket/Chat/Character는 팀원 구현을 기다리는 참조 구현이며 개인 담당과 분리한다.
+ * 실제 TCP로 도는 시연용 서버. 로비와 직업을 간단히 직접 구현해, 정식 서버 없이도 판 진행과 사건을 시험할 수 있다.
+ * 실제 서버는 ServerMain이다.
  */
 public final class DemoServerMain implements AutoCloseable {
     private final ServerSocket server;

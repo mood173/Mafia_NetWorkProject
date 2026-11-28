@@ -4,7 +4,7 @@ import com.mafia.client.stream.ClientState;
 import com.mafia.common.model.Phase;
 import com.mafia.common.protocol.*;
 import javax.swing.*;
-/** 연동용 임시 능력 UI. 경탁의 AbilityPanel로 교체할 자리다. */
+/** 밤 능력 패널. 대상을 골라 내 직업의 능력을 보낸다. 한 밤에 한 번만 보낼 수 있다. */
 public final class DemoAbilityPanel extends JPanel implements com.mafia.client.character.AbilityView {
     private final JButton send=new JButton("밤 능력 선택");
     private final JComboBox<String> target=new JComboBox<>();

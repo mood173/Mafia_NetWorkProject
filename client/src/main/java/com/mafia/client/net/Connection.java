@@ -5,7 +5,7 @@ import com.mafia.common.protocol.Message;
 import java.io.IOException;
 
 /**
- * 서버 연결 계약. 소켓 구현 SocketConnection 은 고경탁 담당.
+ * 서버 연결. 실제 소켓 연결은 SocketConnection(고경탁)이 맡는다.
  * 씬은 이 인터페이스만 보고, 소켓과 스레드는 모른다.
  */
 public interface Connection {

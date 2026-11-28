@@ -2,7 +2,7 @@ package StreamSystem;
 
 import com.mafia.common.model.Phase;
 
-/** 판 안의 단계. 기존 공통 Phase를 감싼다. 단계 판정의 정본은 서버다. */
+/** 화면에 보일 판의 단계. 공통 Phase를 그대로 따라가며, 단계를 정하는 것은 서버다. */
 public enum gameStream {
     WAITING(Phase.WAITING), NIGHT(Phase.NIGHT), DAY_RESULT(Phase.DAY_RESULT),
     DAY_TALK(Phase.DAY_TALK), VOTE(Phase.VOTE), GAME_END(Phase.GAME_END);

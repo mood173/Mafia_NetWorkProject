@@ -5,7 +5,7 @@ import com.mafia.common.model.Phase;
 import com.mafia.common.protocol.*;
 import javax.swing.*;
 import java.awt.*;
-/** 경탁 채팅 컴포넌트를 위한 별도 시연 구현. */
+/** 채팅 패널. 게임 중에는 살아 있는 사람만 토론·투표 단계에 보낼 수 있다. */
 public final class DemoChatPanel extends JPanel implements com.mafia.client.ui.ChatView {
     public JComponent view(){return this;}
     private final JTextArea log=new JTextArea(9,40);

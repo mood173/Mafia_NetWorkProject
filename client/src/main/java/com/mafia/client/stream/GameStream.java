@@ -6,7 +6,10 @@ import com.mafia.common.protocol.*;
 import javax.swing.*;
 import java.awt.CardLayout;
 
-/** 사용자의 StreamManager가 전이를 정하고 이 클래스는 Swing 씬 생명주기만 실행한다. */
+/**
+ * 서버 메시지를 받아 화면을 바꾸는 곳. 어느 화면이어야 하는지는 StreamManager가 정하고,
+ * 여기서는 실제 Swing 화면을 바꾸고 각 화면의 onEnter/onExit를 부른다.
+ */
 public final class GameStream implements MessageListener {
     private final JFrame frame;
     private final CardLayout cards=new CardLayout();

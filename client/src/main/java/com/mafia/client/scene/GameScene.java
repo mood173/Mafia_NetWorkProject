@@ -9,6 +9,10 @@ import com.mafia.common.protocol.*;
 import javax.swing.*;
 import java.awt.*;
 import java.util.*;
+/**
+ * 게임 화면. 위는 단계 표시줄, 왼쪽은 참가자 생존 목록, 가운데는 게임 기록과 채팅, 아래는 능력·투표 버튼.
+ * 화면은 판단하지 않는다. 서버가 보낸 메시지를 그대로 보여 주고, 거절 응답을 받으면 그 요청의 버튼만 다시 연다.
+ */
 public final class GameScene implements Scene {
     private final ClientState state;private final JPanel panel=new JPanel(new BorderLayout(10,10));
     private final DefaultListModel<String> alive=new DefaultListModel<>();

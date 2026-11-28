@@ -3,7 +3,7 @@ import com.mafia.common.model.Phase;
 import com.mafia.common.protocol.Message;
 import java.util.*;
 
-/** 서버 메시지의 화면용 투영. Scene은 읽기만 한다. */
+/** 서버 메시지에서 화면에 필요한 값만 모아 둔 곳. 화면은 읽기만 하고 고치지 않는다. */
 public final class ClientState {
     private String myName="",myRole="",roomId="",roomName="",host="",roomCode="",winner="",reveal="",todayEvent="";
     private Phase phase=Phase.WAITING;
